@@ -10,7 +10,7 @@ export type {
   Quest,
 } from './types'
 
-export { DEFAULT_BOARD } from './types'
+export { DEFAULT_BOARD, LAYER_ORDER } from './types'
 
 export {
   createQuest,

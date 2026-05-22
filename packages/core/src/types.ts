@@ -7,6 +7,17 @@ export type Orientation = 'horizontal' | 'vertical'
 
 export type ElementType = 'monster' | 'furniture' | 'door' | 'trap' | 'treasure' | 'hero' | 'marker'
 
+/** Layer order from back to front (lower index = rendered first = behind) */
+export const LAYER_ORDER: ElementType[] = [
+  'trap',
+  'furniture',
+  'door',
+  'treasure',
+  'monster',
+  'hero',
+  'marker',
+]
+
 export interface QuestElement {
   id: string
   type: ElementType

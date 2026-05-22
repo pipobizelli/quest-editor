@@ -1,6 +1,7 @@
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { Stage, Layer } from 'react-konva'
-import type { Quest, QuestElement } from '@quest-editor/core'
+import type { Quest, QuestElement, ElementType } from '@quest-editor/core'
+import { LAYER_ORDER } from '@quest-editor/core'
 import type Konva from 'konva'
 import { Grid } from './Grid'
 import { QuestElementNode } from './QuestElementNode'
@@ -35,6 +36,17 @@ export function QuestEditor({
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 })
   const [scale, setScale] = useState(1)
   const stageRef = useRef<Konva.Stage>(null)
+
+  // Group elements by type for layered rendering
+  const elementsByType = useMemo(() => {
+    const map = new Map<ElementType, QuestElement[]>()
+    for (const el of quest.elements) {
+      const list = map.get(el.type) ?? []
+      list.push(el)
+      map.set(el.type, list)
+    }
+    return map
+  }, [quest.elements])
 
   useEffect(() => {
     if (externalQuest) {
@@ -106,19 +118,30 @@ export function QuestEditor({
         }
       }}
     >
-      <Layer>
+      {/* Board layer — grid + walls (non-interactive) */}
+      <Layer listening={false}>
         <Grid board={quest.board} layout={quest.layout} />
-        {quest.elements.map((el: QuestElement) => (
-          <QuestElementNode
-            key={el.id}
-            element={el}
-            board={quest.board}
-            isSelected={el.id === selectedElementId}
-            onSelect={selectElement}
-            onDragEnd={handleDragEnd}
-          />
-        ))}
       </Layer>
+
+      {/* Element layers — one per category, ordered back to front */}
+      {LAYER_ORDER.map((layerType) => {
+        const elements = elementsByType.get(layerType)
+        if (!elements?.length) return null
+        return (
+          <Layer key={layerType}>
+            {elements.map((el) => (
+              <QuestElementNode
+                key={el.id}
+                element={el}
+                board={quest.board}
+                isSelected={el.id === selectedElementId}
+                onSelect={selectElement}
+                onDragEnd={handleDragEnd}
+              />
+            ))}
+          </Layer>
+        )
+      })}
     </Stage>
   )
 }
