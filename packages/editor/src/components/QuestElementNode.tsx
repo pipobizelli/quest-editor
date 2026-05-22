@@ -1,24 +1,24 @@
-import { Rect, Text, Group, Image } from 'react-konva'
-import type { QuestElement, BoardConfig } from '@quest-editor/core'
-import { useAsset } from '../hooks/useAsset'
+import { Rect, Text, Group, Image } from "react-konva";
+import type { QuestElement, BoardConfig } from "@quest-editor/core";
+import { useAsset } from "../hooks/useAsset";
 
 const TYPE_COLORS: Record<string, string> = {
-  monster: '#e74c3c',
-  furniture: '#8b6914',
-  door: '#3498db',
-  trap: '#e67e22',
-  treasure: '#f1c40f',
-  hero: '#2ecc71',
-  npc: '#1abc9c',
-  marker: '#9b59b6',
-}
+  hero: "#e74c3c",
+  furniture: "#8b6914",
+  door: "#3498db",
+  trap: "#e67e22",
+  treasure: "#f1c40f",
+  monster: "#2ecc71",
+  npc: "#1abc9c",
+  marker: "#9b59b6",
+};
 
 interface QuestElementNodeProps {
-  element: QuestElement
-  board: BoardConfig
-  isSelected: boolean
-  onSelect: (id: string) => void
-  onDragEnd: (id: string, x: number, y: number) => void
+  element: QuestElement;
+  board: BoardConfig;
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+  onDragEnd: (id: string, x: number, y: number) => void;
 }
 
 export function QuestElementNode({
@@ -28,14 +28,30 @@ export function QuestElementNode({
   onSelect,
   onDragEnd,
 }: QuestElementNodeProps) {
-  const { cellSize } = board
+  const { cellSize } = board;
 
   // Door: secret doors render as a full tile block, others render on the edge
-  if (element.type === 'door' && element.subtype !== 'secret') {
-    return <DoorNode element={element} cellSize={cellSize} isSelected={isSelected} onSelect={onSelect} onDragEnd={onDragEnd} />
+  if (element.type === "door" && element.subtype !== "secret") {
+    return (
+      <DoorNode
+        element={element}
+        cellSize={cellSize}
+        isSelected={isSelected}
+        onSelect={onSelect}
+        onDragEnd={onDragEnd}
+      />
+    );
   }
 
-  return <StandardNode element={element} cellSize={cellSize} isSelected={isSelected} onSelect={onSelect} onDragEnd={onDragEnd} />
+  return (
+    <StandardNode
+      element={element}
+      cellSize={cellSize}
+      isSelected={isSelected}
+      onSelect={onSelect}
+      onDragEnd={onDragEnd}
+    />
+  );
 }
 
 function StandardNode({
@@ -45,16 +61,16 @@ function StandardNode({
   onSelect,
   onDragEnd,
 }: {
-  element: QuestElement
-  cellSize: number
-  isSelected: boolean
-  onSelect: (id: string) => void
-  onDragEnd: (id: string, x: number, y: number) => void
+  element: QuestElement;
+  cellSize: number;
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+  onDragEnd: (id: string, x: number, y: number) => void;
 }) {
-  const image = useAsset(element.type, element.subtype)
-  const color = TYPE_COLORS[element.type] ?? '#999'
-  const elWidth = (element.width ?? 1) * cellSize
-  const elHeight = (element.height ?? 1) * cellSize
+  const image = useAsset(element.type, element.subtype);
+  const color = TYPE_COLORS[element.type] ?? "#999";
+  const elWidth = (element.width ?? 1) * cellSize;
+  const elHeight = (element.height ?? 1) * cellSize;
 
   return (
     <Group
@@ -64,20 +80,23 @@ function StandardNode({
       onClick={() => onSelect(element.id)}
       onTap={() => onSelect(element.id)}
       onDragEnd={(e) => {
-        const x = Math.round(e.target.x() / cellSize)
-        const y = Math.round(e.target.y() / cellSize)
-        e.target.x(x * cellSize)
-        e.target.y(y * cellSize)
-        onDragEnd(element.id, x, y)
+        const x = Math.round(e.target.x() / cellSize);
+        const y = Math.round(e.target.y() / cellSize);
+        e.target.x(x * cellSize);
+        e.target.y(y * cellSize);
+        onDragEnd(element.id, x, y);
       }}
     >
+      {/* Hit area — always present so drag works even with listening={false} sprites */}
+      <Rect width={elWidth} height={elHeight} fill="transparent" />
       {image ? (
         <SpriteImage
           image={image}
           areaWidth={elWidth}
           areaHeight={elHeight}
-          padding={4}
+          padding={(element.width ?? 1) > 1 && (element.height ?? 1) > 1 ? 8 : 1}
           opacity={element.hidden ? 0.5 : 1}
+          rotation={element.orientation === "horizontal" ? 90 : 0}
         />
       ) : (
         <>
@@ -112,7 +131,7 @@ function StandardNode({
         />
       )}
     </Group>
-  )
+  );
 }
 
 /**
@@ -128,20 +147,29 @@ function DoorNode({
   onSelect,
   onDragEnd,
 }: {
-  element: QuestElement
-  cellSize: number
-  isSelected: boolean
-  onSelect: (id: string) => void
-  onDragEnd: (id: string, x: number, y: number) => void
+  element: QuestElement;
+  cellSize: number;
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+  onDragEnd: (id: string, x: number, y: number) => void;
 }) {
-  const image = useAsset('door', element.subtype)
-  const isVertical = element.orientation === 'vertical'
-  const doorThickness = 6
-  const doorLength = cellSize * 0.7
+  const image = useAsset("door", element.subtype);
+  const isVertical = element.orientation === "vertical";
+  const doorThickness = 6;
+  const doorLength = cellSize * 0.7;
+  const stripWidth = cellSize * 0.7;
 
-  // Position the door on the edge between tiles
-  const offsetX = isVertical ? cellSize - doorThickness / 2 : (cellSize - doorLength) / 2
-  const offsetY = isVertical ? (cellSize - doorLength) / 2 : cellSize - doorThickness / 2
+  // The door straddles the edge between two tiles.
+  // Vertical: centered on the right edge (x + cellSize)
+  // Horizontal: centered on the bottom edge (y + cellSize)
+
+  // Fallback position
+  const offsetX = isVertical
+    ? cellSize - doorThickness / 2
+    : (cellSize - doorLength) / 2;
+  const offsetY = isVertical
+    ? (cellSize - doorLength) / 2
+    : cellSize - doorThickness / 2;
 
   return (
     <Group
@@ -151,27 +179,35 @@ function DoorNode({
       onClick={() => onSelect(element.id)}
       onTap={() => onSelect(element.id)}
       onDragEnd={(e) => {
-        const x = Math.round(e.target.x() / cellSize)
-        const y = Math.round(e.target.y() / cellSize)
-        e.target.x(x * cellSize)
-        e.target.y(y * cellSize)
-        onDragEnd(element.id, x, y)
+        const x = Math.round(e.target.x() / cellSize);
+        const y = Math.round(e.target.y() / cellSize);
+        e.target.x(x * cellSize);
+        e.target.y(y * cellSize);
+        onDragEnd(element.id, x, y);
       }}
     >
-      {/* Hit area (invisible, full tile for easier clicking) */}
-      <Rect
-        width={cellSize}
-        height={cellSize}
-        fill="transparent"
-      />
+      {/* Hit area */}
+      <Rect width={cellSize} height={cellSize} fill="transparent" />
       {image ? (
-        <Image
-          image={image}
-          x={offsetX}
-          y={offsetY}
-          width={isVertical ? doorThickness * 2 : doorLength}
-          height={isVertical ? doorLength : doorThickness * 2}
-        />
+        <Group
+          x={cellSize / 2}
+          y={cellSize / 2}
+          rotation={isVertical ? -90 : 0}
+          offsetX={cellSize / 2}
+          offsetY={cellSize / 2}
+          listening={false}
+        >
+          {/* Sprite is horizontal by default, placed on the bottom edge.
+              For vertical doors, the container rotates -90° moving it to the right edge. */}
+          <Group y={cellSize - stripWidth / 2}>
+            <SpriteImage
+              image={image}
+              areaWidth={cellSize}
+              areaHeight={stripWidth}
+              padding={2}
+            />
+          </Group>
+        </Group>
       ) : (
         <Rect
           x={offsetX}
@@ -180,7 +216,7 @@ function DoorNode({
           height={isVertical ? doorLength : doorThickness}
           fill="#3498db"
           cornerRadius={2}
-          stroke={isSelected ? '#fff' : '#2980b9'}
+          stroke={isSelected ? "#fff" : "#2980b9"}
           strokeWidth={isSelected ? 2 : 1}
         />
       )}
@@ -195,13 +231,12 @@ function DoorNode({
         />
       )}
     </Group>
-  )
+  );
 }
 
 /**
  * Renders a sprite image centered within an area, maintaining aspect ratio.
- * The sprite fits inside (areaWidth - padding*2) x (areaHeight - padding*2)
- * without stretching.
+ * Supports rotation (rotates around center of area).
  */
 function SpriteImage({
   image,
@@ -209,43 +244,52 @@ function SpriteImage({
   areaHeight,
   padding = 4,
   opacity = 1,
+  rotation = 0,
 }: {
-  image: HTMLImageElement
-  areaWidth: number
-  areaHeight: number
-  padding?: number
-  opacity?: number
+  image: HTMLImageElement;
+  areaWidth: number;
+  areaHeight: number;
+  padding?: number;
+  opacity?: number;
+  rotation?: number;
 }) {
-  const availW = areaWidth - padding * 2
-  const availH = areaHeight - padding * 2
-  const imgRatio = image.naturalWidth / image.naturalHeight
-  const areaRatio = availW / availH
+  const availW = areaWidth - padding * 2;
+  const availH = areaHeight - padding * 2;
+  const imgRatio = image.naturalWidth / image.naturalHeight;
+  const areaRatio = availW / availH;
 
-  let drawW: number
-  let drawH: number
+  let drawW: number;
+  let drawH: number;
 
   if (imgRatio > areaRatio) {
-    // Image is wider than area — fit by width
-    drawW = availW
-    drawH = availW / imgRatio
+    drawW = availW;
+    drawH = availW / imgRatio;
   } else {
-    // Image is taller than area — fit by height
-    drawH = availH
-    drawW = availH * imgRatio
+    drawH = availH;
+    drawW = availH * imgRatio;
   }
 
-  const x = padding + (availW - drawW) / 2
-  const y = padding + (availH - drawH) / 2
+  const centerX = areaWidth / 2;
+  const centerY = areaHeight / 2;
 
   return (
-    <Image
-      image={image}
-      x={x}
-      y={y}
-      width={drawW}
-      height={drawH}
-      opacity={opacity}
+    <Group
+      x={centerX}
+      y={centerY}
+      rotation={rotation}
+      offsetX={centerX}
+      offsetY={centerY}
       listening={false}
-    />
-  )
+    >
+      <Image
+        image={image}
+        x={padding + (availW - drawW) / 2}
+        y={padding + (availH - drawH) / 2}
+        width={drawW}
+        height={drawH}
+        opacity={opacity}
+        listening={false}
+      />
+    </Group>
+  );
 }

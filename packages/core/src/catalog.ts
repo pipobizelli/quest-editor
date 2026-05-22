@@ -33,15 +33,15 @@ export const CATALOG: CatalogEntry[] = [
   // ── Furniture ──
   { type: 'furniture', subtype: 'table', label: 'Table', width: 3, height: 2 },
   { type: 'furniture', subtype: 'chest', label: 'Chest', width: 1, height: 1 },
-  { type: 'furniture', subtype: 'bookcase', label: 'Bookcase', width: 1, height: 3 },
-  { type: 'furniture', subtype: 'rack', label: 'Rack', width: 1, height: 2 },
-  { type: 'furniture', subtype: 'weaponsrack', label: 'Weapons Rack', width: 1, height: 2 },
+  { type: 'furniture', subtype: 'bookcase', label: 'Bookcase', width: 3, height: 1 },
+  { type: 'furniture', subtype: 'rack', label: 'Rack', width: 2, height: 3 },
+  { type: 'furniture', subtype: 'weaponsrack', label: 'Weapons Rack', width: 3, height: 1 },
   { type: 'furniture', subtype: 'throne', label: 'Throne', width: 1, height: 1 },
   { type: 'furniture', subtype: 'coffin', label: 'Coffin', width: 1, height: 2 },
-  { type: 'furniture', subtype: 'tomb', label: 'Tomb', width: 2, height: 1 },
-  { type: 'furniture', subtype: 'sorcererstable', label: 'Sorcerer Table', width: 2, height: 1 },
-  { type: 'furniture', subtype: 'fireplace', label: 'Fireplace', width: 2, height: 1 },
-  { type: 'furniture', subtype: 'cupboard', label: 'Cupboard', width: 1, height: 2 },
+  { type: 'furniture', subtype: 'tomb', label: 'Tomb', width: 2, height: 3 },
+  { type: 'furniture', subtype: 'sorcererstable', label: 'Sorcerer Table', width: 3, height: 2 },
+  { type: 'furniture', subtype: 'fireplace', label: 'Fireplace', width: 3, height: 1 },
+  { type: 'furniture', subtype: 'cupboard', label: 'Cupboard', width: 3, height: 1 },
   { type: 'furniture', subtype: 'alchemistsbench', label: 'Alchemists Bench', width: 3, height: 2 },
   { type: 'furniture', subtype: 'block', label: 'Block', width: 1, height: 1 },
   { type: 'furniture', subtype: 'doubleblock', label: 'Double Block', width: 2, height: 1 },
@@ -60,7 +60,7 @@ export const CATALOG: CatalogEntry[] = [
   { type: 'trap', subtype: 'fallingrock', label: 'Falling Rock', width: 1, height: 1 },
 
   // ── Markers ──
-  { type: 'marker', subtype: 'stairway', label: 'Stairway', width: 1, height: 1 },
+  { type: 'marker', subtype: 'stairway', label: 'Stairway', width: 2, height: 2 },
   ...'abcdefghijklm'.split('').map((letter) => ({
     type: 'marker' as ElementType,
     subtype: letter,

@@ -71,14 +71,23 @@ export function QuestEditor({
     return map
   }, [quest.elements])
 
+  // Sync external quest into store (only when it actually changes from outside)
+  const lastExternalQuestRef = useRef(externalQuest)
   useEffect(() => {
-    if (externalQuest) {
+    if (externalQuest && externalQuest !== lastExternalQuestRef.current) {
+      lastExternalQuestRef.current = externalQuest
       store.getState().setQuest(externalQuest)
     }
   }, [externalQuest, store])
 
+  // Notify parent of internal changes
+  const lastNotifiedQuestRef = useRef(quest)
   useEffect(() => {
-    onChange?.(quest)
+    if (quest !== lastNotifiedQuestRef.current) {
+      lastNotifiedQuestRef.current = quest
+      lastExternalQuestRef.current = quest
+      onChange?.(quest)
+    }
   }, [quest, onChange])
 
   // Keyboard: Delete/Backspace removes selected element, Escape cancels placing

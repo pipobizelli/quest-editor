@@ -22,7 +22,7 @@ function createSampleQuest(): Quest {
   // Furniture
   quest = addElement(quest, createElement('furniture', 'chest', 12, 5))
   quest = addElement(quest, createElement('furniture', 'table', 2, 2, { width: 3, height: 2 }))
-  quest = addElement(quest, createElement('furniture', 'bookcase', 10, 8, { width: 1, height: 3 }))
+  quest = addElement(quest, createElement('furniture', 'bookcase', 10, 8, { width: 3, height: 1 }))
   // Doors
   quest = addElement(quest, createElement('door', 'door', 4, 3, { orientation: 'vertical' }))
   quest = addElement(quest, createElement('door', 'door', 8, 5, { orientation: 'horizontal' }))
@@ -30,7 +30,7 @@ function createSampleQuest(): Quest {
   // Traps
   quest = addElement(quest, createElement('trap', 'pittrap', 6, 4, { hidden: true }))
   // Markers
-  quest = addElement(quest, createElement('marker', 'stairway', 0, 18, { metadata: { role: 'start' } }))
+  quest = addElement(quest, createElement('marker', 'stairway', 0, 17, { width: 2, height: 2, metadata: { role: 'start' } }))
   quest = addElement(quest, createElement('marker', 'a', 20, 3))
   return quest
 }
