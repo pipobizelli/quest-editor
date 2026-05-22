@@ -1,5 +1,6 @@
-import { Rect, Text, Group, Image } from "react-konva";
+import { Rect, Circle, Text, Group, Image } from "react-konva";
 import type { QuestElement, BoardConfig } from "@quest-editor/core";
+import { getCatalogEntry } from "@quest-editor/core";
 import { useAsset } from "../hooks/useAsset";
 
 const TYPE_COLORS: Record<string, string> = {
@@ -94,10 +95,30 @@ function StandardNode({
           image={image}
           areaWidth={elWidth}
           areaHeight={elHeight}
-          padding={(element.width ?? 1) > 1 && (element.height ?? 1) > 1 ? 8 : 1}
+          padding={getCatalogEntry(element.type, element.subtype)?.padding ?? 1}
           opacity={element.hidden ? 0.5 : 1}
           rotation={element.orientation === "horizontal" ? 90 : 0}
         />
+      ) : element.type === 'marker' ? (
+        <>
+          <Circle
+            x={elWidth / 2}
+            y={elHeight / 2}
+            radius={Math.min(elWidth, elHeight) / 2 - 2}
+            fill={color}
+            opacity={element.hidden ? 0.5 : 0.85}
+          />
+          <Text
+            text={element.subtype.charAt(0).toUpperCase()}
+            width={elWidth}
+            height={elHeight}
+            align="center"
+            verticalAlign="middle"
+            fontSize={14}
+            fill="#fff"
+            listening={false}
+          />
+        </>
       ) : (
         <>
           <Rect
