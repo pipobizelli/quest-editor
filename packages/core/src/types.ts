@@ -23,6 +23,8 @@ export interface QuestElement {
   type: ElementType
   subtype: string
   position: Position
+  width?: number   // in tiles, default 1
+  height?: number  // in tiles, default 1
   orientation?: Orientation
   hidden?: boolean
   metadata?: Record<string, unknown>

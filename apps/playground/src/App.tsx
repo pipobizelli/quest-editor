@@ -15,7 +15,10 @@ function createSampleQuest(): Quest {
   quest = addElement(quest, createElement('monster', 'goblin', 5, 3))
   quest = addElement(quest, createElement('monster', 'skeleton', 8, 7))
   quest = addElement(quest, createElement('furniture', 'chest', 12, 5))
+  quest = addElement(quest, createElement('furniture', 'table', 2, 2, { width: 2, height: 1 }))
+  quest = addElement(quest, createElement('furniture', 'bookcase', 10, 8, { width: 1, height: 3 }))
   quest = addElement(quest, createElement('door', 'wooden', 4, 3, { orientation: 'vertical' }))
+  quest = addElement(quest, createElement('door', 'wooden', 8, 5, { orientation: 'horizontal' }))
   quest = addElement(quest, createElement('trap', 'pit', 6, 4, { hidden: true }))
   quest = addElement(quest, createElement('treasure', 'gold', 15, 10))
   return quest

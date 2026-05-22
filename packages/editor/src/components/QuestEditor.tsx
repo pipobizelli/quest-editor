@@ -33,9 +33,22 @@ export function QuestEditor({
   const selectElement = useStore(store, (s) => s.selectElement)
   const doMoveElement = useStore(store, (s) => s.moveElement)
 
-  const [stagePos, setStagePos] = useState({ x: 0, y: 0 })
-  const [scale, setScale] = useState(1)
   const stageRef = useRef<Konva.Stage>(null)
+
+  // Calculate initial scale and position to fit and center the board
+  const labelPadding = 20 // space for row/column labels
+  const boardPixelWidth = quest.board.width * quest.board.cellSize + labelPadding
+  const boardPixelHeight = quest.board.height * quest.board.cellSize + labelPadding
+  const fitScale = Math.min(
+    containerWidth / boardPixelWidth,
+    containerHeight / boardPixelHeight,
+  ) * 0.95 // slight margin
+
+  const [scale, setScale] = useState(fitScale)
+  const [stagePos, setStagePos] = useState({
+    x: (containerWidth - boardPixelWidth * fitScale) / 2 + labelPadding * fitScale,
+    y: (containerHeight - boardPixelHeight * fitScale) / 2 + labelPadding * fitScale,
+  })
 
   // Group elements by type for layered rendering
   const elementsByType = useMemo(() => {
