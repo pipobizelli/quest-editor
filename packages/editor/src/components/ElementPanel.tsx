@@ -22,6 +22,8 @@ export interface ElementPanelProps {
   onDeleteSelected: () => void
   onRotate: () => void
   onRotateSelected: () => void
+  tool: string
+  onSetTool: (tool: 'select' | 'place' | 'erase' | 'disable') => void
   assetBasePath?: string
 }
 
@@ -34,6 +36,8 @@ export function ElementPanel({
   onDeleteSelected,
   onRotate,
   onRotateSelected,
+  tool,
+  onSetTool,
   assetBasePath = '/assets',
 }: ElementPanelProps) {
   const [openCategory, setOpenCategory] = useState<ElementType | null>('hero')
@@ -71,6 +75,22 @@ export function ElementPanel({
             </>
           )}
         </div>
+      </div>
+      <div style={toolbarStyle}>
+        <button
+          onClick={() => onSetTool('select')}
+          style={{ ...toolBtnStyle, ...(tool === 'select' ? toolActiveBtnStyle : {}) }}
+          title="Select (Esc)"
+        >
+          Select
+        </button>
+        <button
+          onClick={() => onSetTool('disable')}
+          style={{ ...toolBtnStyle, ...(tool === 'disable' ? toolActiveBtnStyle : {}) }}
+          title="Disable tiles (D)"
+        >
+          Disable
+        </button>
       </div>
 
       <div style={listStyle}>
@@ -123,6 +143,30 @@ export function ElementPanel({
       </div>
     </div>
   )
+}
+
+const toolbarStyle: React.CSSProperties = {
+  display: 'flex',
+  gap: 4,
+  padding: '6px 12px',
+  borderBottom: '1px solid #333',
+}
+
+const toolBtnStyle: React.CSSProperties = {
+  flex: 1,
+  padding: '4px 8px',
+  background: '#1a2540',
+  color: '#999',
+  border: '1px solid #333',
+  borderRadius: 4,
+  cursor: 'pointer',
+  fontSize: 11,
+}
+
+const toolActiveBtnStyle: React.CSSProperties = {
+  background: '#2a4a6b',
+  color: '#eee',
+  borderColor: '#3498db',
 }
 
 const panelStyle: React.CSSProperties = {

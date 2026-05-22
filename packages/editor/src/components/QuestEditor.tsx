@@ -33,7 +33,9 @@ export function QuestEditor({
 
   const quest = useStore(store, (s) => s.quest)
   const selectedElementId = useStore(store, (s) => s.selectedElementId)
+  const selectedElementIds = useStore(store, (s) => s.selectedElementIds)
   const selectElement = useStore(store, (s) => s.selectElement)
+  const selectElements = useStore(store, (s) => s.selectElements)
   const doMoveElement = useStore(store, (s) => s.moveElement)
   const doAddElement = useStore(store, (s) => s.addElement)
   const placingEntry = useStore(store, (s) => s.placingEntry)
@@ -44,8 +46,12 @@ export function QuestEditor({
   const toggleOrientation = useStore(store, (s) => s.toggleOrientation)
   const rotateSelected = useStore(store, (s) => s.rotateSelected)
   const tool = useStore(store, (s) => s.tool)
+  const dragRect = useStore(store, (s) => s.dragRect)
+  const setDragRect = useStore(store, (s) => s.setDragRect)
+  const setTool = useStore(store, (s) => s.setTool)
 
   const stageRef = useRef<Konva.Stage>(null)
+  const isDraggingRect = useRef(false)
   const canvasWidth = containerWidth - PANEL_WIDTH
 
   // Calculate initial scale and position to fit and center the board
@@ -93,18 +99,34 @@ export function QuestEditor({
     }
   }, [quest, onChange])
 
-  // Keyboard: Delete/Backspace removes selected element, Escape cancels placing
+  // Convert pointer position to tile coordinates
+  const pointerToTile = useCallback(() => {
+    const stage = stageRef.current
+    if (!stage) return null
+    const pointer = stage.getPointerPosition()
+    if (!pointer) return null
+    const x = Math.floor((pointer.x - stage.x()) / stage.scaleX() / quest.board.cellSize)
+    const y = Math.floor((pointer.y - stage.y()) / stage.scaleY() / quest.board.cellSize)
+    return { x, y }
+  }, [quest.board.cellSize])
+
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Delete' || e.key === 'Backspace') {
         const state = store.getState()
-        if (state.selectedElementId) {
+        if (state.selectedElementId || state.selectedElementIds.length > 0) {
           e.preventDefault()
           state.removeSelected()
         }
       }
       if (e.key === 'Escape') {
-        store.getState().stopPlacing()
+        const state = store.getState()
+        if (state.tool !== 'select') {
+          state.setTool('select')
+        } else {
+          state.stopPlacing()
+        }
       }
       if (e.key === 'r' || e.key === 'R') {
         const state = store.getState()
@@ -113,6 +135,12 @@ export function QuestEditor({
         } else if (state.selectedElementId) {
           state.rotateSelected()
         }
+      }
+      if (e.key === 's' || e.key === 'S') {
+        store.getState().setTool('select')
+      }
+      if (e.key === 'd' || e.key === 'D') {
+        store.getState().setTool('disable')
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -151,6 +179,74 @@ export function QuestEditor({
     [doMoveElement],
   )
 
+  // Mouse down: start drag rect for disable or select
+  const handleMouseDown = useCallback(
+    (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (e.target !== e.target.getStage()) return
+      const state = store.getState()
+      if (state.tool !== 'disable' && state.tool !== 'select') return
+
+      const tile = pointerToTile()
+      if (!tile) return
+
+      isDraggingRect.current = true
+      setDragRect({ x1: tile.x, y1: tile.y, x2: tile.x, y2: tile.y })
+    },
+    [store, pointerToTile, setDragRect],
+  )
+
+  // Mouse move: update drag rect
+  const handleMouseMove = useCallback(
+    () => {
+      if (!isDraggingRect.current) return
+
+      const tile = pointerToTile()
+      if (!tile) return
+
+      const state = store.getState()
+      if (!state.dragRect) return
+
+      setDragRect({ ...state.dragRect, x2: tile.x, y2: tile.y })
+    },
+    [store, pointerToTile, setDragRect],
+  )
+
+  // Mouse up: apply drag rect
+  const handleMouseUp = useCallback(
+    () => {
+      if (!isDraggingRect.current) return
+      isDraggingRect.current = false
+
+      const state = store.getState()
+      if (!state.dragRect) return
+
+      const { x1, y1, x2, y2 } = state.dragRect
+      const minX = Math.min(x1, x2)
+      const maxX = Math.max(x1, x2)
+      const minY = Math.min(y1, y2)
+      const maxY = Math.max(y1, y2)
+
+      if (state.tool === 'disable') {
+        state.toggleDisabledRect(x1, y1, x2, y2)
+      } else if (state.tool === 'select') {
+        // Find elements within the rect
+        const ids = state.quest.elements
+          .filter((el) => {
+            const ex = el.position.x
+            const ey = el.position.y
+            const ew = (el.width ?? 1) - 1
+            const eh = (el.height ?? 1) - 1
+            return ex + ew >= minX && ex <= maxX && ey + eh >= minY && ey <= maxY
+          })
+          .map((el) => el.id)
+        state.selectElements(ids)
+      }
+
+      setDragRect(null)
+    },
+    [store, setDragRect],
+  )
+
   const handleStageClick = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
       if (e.target !== e.target.getStage()) return
@@ -159,14 +255,8 @@ export function QuestEditor({
 
       // Place mode: add element at clicked position
       if (state.tool === 'place' && state.placingEntry) {
-        const stage = stageRef.current
-        if (!stage) return
-
-        const pointer = stage.getPointerPosition()
-        if (!pointer) return
-
-        const x = Math.floor((pointer.x - stage.x()) / stage.scaleX() / quest.board.cellSize)
-        const y = Math.floor((pointer.y - stage.y()) / stage.scaleY() / quest.board.cellSize)
+        const tile = pointerToTile()
+        if (!tile) return
 
         const entry = state.placingEntry
         const orientation = state.placingOrientation
@@ -181,16 +271,28 @@ export function QuestEditor({
           overrides.orientation = 'vertical'
         }
 
-        const element = createElement(entry.type, entry.subtype, x, y, overrides)
+        const element = createElement(entry.type, entry.subtype, tile.x, tile.y, overrides)
         doAddElement(element)
         return
       }
 
-      // Select mode: deselect
-      selectElement(null)
+      // Disable mode is handled by mouseDown/mouseUp for drag support
+      if (state.tool === 'disable') return
+
+      // Select mode: deselect (only if no drag rect was used)
+      if (!state.dragRect) {
+        selectElement(null)
+      }
     },
-    [store, quest.board.cellSize, doAddElement, selectElement],
+    [store, pointerToTile, doAddElement, selectElement],
   )
+
+  const cursorMap = {
+    select: 'default',
+    place: 'crosshair',
+    erase: 'not-allowed',
+    disable: 'cell',
+  }
 
   return (
     <div style={{ display: 'flex', height: containerHeight }}>
@@ -203,6 +305,8 @@ export function QuestEditor({
         onDeleteSelected={removeSelected}
         onRotate={toggleOrientation}
         onRotateSelected={rotateSelected}
+        tool={tool}
+        onSetTool={setTool}
       />
       <Stage
         ref={stageRef}
@@ -212,20 +316,28 @@ export function QuestEditor({
         scaleY={scale}
         x={stagePos.x}
         y={stagePos.y}
-        draggable
+        draggable={tool === 'select' || tool === 'place'}
         onWheel={handleWheel}
         onClick={handleStageClick}
         onTap={handleStageClick}
-        style={{ cursor: tool === 'place' ? 'crosshair' : 'default' }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        style={{ cursor: cursorMap[tool] }}
         onDragEnd={(e) => {
           if (e.target === stageRef.current) {
             setStagePos({ x: e.target.x(), y: e.target.y() })
           }
         }}
       >
-        {/* Board layer — grid + walls (non-interactive) */}
+        {/* Board layer — grid + walls + disabled tiles (non-interactive) */}
         <Layer listening={false}>
-          <Grid board={quest.board} layout={quest.layout} />
+          <Grid
+            board={quest.board}
+            layout={quest.layout}
+            disabledTiles={quest.disabledTiles}
+            dragRect={dragRect}
+          />
         </Layer>
 
         {/* Element layers — one per category, ordered back to front */}
@@ -239,7 +351,7 @@ export function QuestEditor({
                   key={el.id}
                   element={el}
                   board={quest.board}
-                  isSelected={el.id === selectedElementId}
+                  isSelected={selectedElementIds.includes(el.id)}
                   onSelect={selectElement}
                   onDragEnd={handleDragEnd}
                 />

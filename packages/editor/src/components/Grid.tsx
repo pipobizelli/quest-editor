@@ -1,12 +1,14 @@
 import { Line, Rect, Text } from 'react-konva'
-import type { BoardConfig, BoardLayout } from '@quest-editor/core'
+import type { BoardConfig, BoardLayout, Position } from '@quest-editor/core'
 
 interface GridProps {
   board: BoardConfig
   layout: BoardLayout
+  disabledTiles?: Position[]
+  dragRect?: { x1: number; y1: number; x2: number; y2: number } | null
 }
 
-export function Grid({ board, layout }: GridProps) {
+export function Grid({ board, layout, disabledTiles, dragRect }: GridProps) {
   const { width, height, cellSize } = board
   const gridLines = []
   const wallLines = []
@@ -109,12 +111,46 @@ export function Grid({ board, layout }: GridProps) {
     )
   }
 
+  // Disabled tiles overlay
+  const disabledOverlay = []
+  if (disabledTiles) {
+    for (const tile of disabledTiles) {
+      disabledOverlay.push(
+        <Rect
+          key={`disabled-${tile.x}-${tile.y}`}
+          x={tile.x * cellSize}
+          y={tile.y * cellSize}
+          width={cellSize}
+          height={cellSize}
+          fill="#000"
+          opacity={0.5}
+        />,
+      )
+    }
+  }
+
+  // Drag selection rectangle preview
+  const dragRectNode = dragRect ? (
+    <Rect
+      x={Math.min(dragRect.x1, dragRect.x2) * cellSize}
+      y={Math.min(dragRect.y1, dragRect.y2) * cellSize}
+      width={(Math.abs(dragRect.x2 - dragRect.x1) + 1) * cellSize}
+      height={(Math.abs(dragRect.y2 - dragRect.y1) + 1) * cellSize}
+      fill="#3498db"
+      opacity={0.2}
+      stroke="#3498db"
+      strokeWidth={1}
+    />
+  ) : null
+
   return (
     <>
       {roomFills}
       {gridLines}
+      {disabledOverlay}
       {wallLines}
       {labels}
+      {dragRectNode}
     </>
   )
 }

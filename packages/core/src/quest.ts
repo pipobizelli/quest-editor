@@ -10,6 +10,7 @@ export function createQuest(partial?: Partial<Quest>): Quest {
     board: partial?.board ?? { ...DEFAULT_BOARD },
     layout: partial?.layout ?? HEROQUEST_LAYOUT,
     elements: partial?.elements ?? [],
+    disabledTiles: partial?.disabledTiles ?? [],
     notes: partial?.notes,
   }
 }

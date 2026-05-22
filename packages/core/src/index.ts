@@ -29,3 +29,5 @@ export { HEROQUEST_LAYOUT, deriveWalls } from './board-layout'
 
 export type { CatalogEntry } from './catalog'
 export { CATALOG, getCatalogByType, getCatalogEntry } from './catalog'
+
+export { isTileDisabled, toggleTile, toggleTilesRect } from './tiles'

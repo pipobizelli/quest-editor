@@ -65,6 +65,7 @@ export interface Quest {
   board: BoardConfig
   layout: BoardLayout
   elements: QuestElement[]
+  disabledTiles?: Position[]
   notes?: string
 }
 
