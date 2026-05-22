@@ -5,7 +5,7 @@ export interface Position {
 
 export type Orientation = 'horizontal' | 'vertical'
 
-export type ElementType = 'monster' | 'furniture' | 'door' | 'trap' | 'treasure' | 'hero' | 'marker'
+export type ElementType = 'monster' | 'furniture' | 'door' | 'trap' | 'treasure' | 'hero' | 'npc' | 'marker'
 
 /** Layer order from back to front (lower index = rendered first = behind) */
 export const LAYER_ORDER: ElementType[] = [
@@ -14,6 +14,7 @@ export const LAYER_ORDER: ElementType[] = [
   'door',
   'treasure',
   'monster',
+  'npc',
   'hero',
   'marker',
 ]

@@ -11,16 +11,27 @@ import {
 
 function createSampleQuest(): Quest {
   let quest = createQuest({ name: 'The Trial' })
+  // Heroes
   quest = addElement(quest, createElement('hero', 'barbarian', 0, 0))
+  // Monsters
   quest = addElement(quest, createElement('monster', 'goblin', 5, 3))
   quest = addElement(quest, createElement('monster', 'skeleton', 8, 7))
+  quest = addElement(quest, createElement('monster', 'chaos', 12, 9))
+  // NPCs
+  quest = addElement(quest, createElement('npc', 'prisoner', 11, 9))
+  // Furniture
   quest = addElement(quest, createElement('furniture', 'chest', 12, 5))
-  quest = addElement(quest, createElement('furniture', 'table', 2, 2, { width: 2, height: 1 }))
+  quest = addElement(quest, createElement('furniture', 'table', 2, 2, { width: 3, height: 2 }))
   quest = addElement(quest, createElement('furniture', 'bookcase', 10, 8, { width: 1, height: 3 }))
-  quest = addElement(quest, createElement('door', 'wooden', 4, 3, { orientation: 'vertical' }))
-  quest = addElement(quest, createElement('door', 'wooden', 8, 5, { orientation: 'horizontal' }))
-  quest = addElement(quest, createElement('trap', 'pit', 6, 4, { hidden: true }))
-  quest = addElement(quest, createElement('treasure', 'gold', 15, 10))
+  // Doors
+  quest = addElement(quest, createElement('door', 'door', 4, 3, { orientation: 'vertical' }))
+  quest = addElement(quest, createElement('door', 'door', 8, 5, { orientation: 'horizontal' }))
+  quest = addElement(quest, createElement('door', 'secret', 9, 9))
+  // Traps
+  quest = addElement(quest, createElement('trap', 'pittrap', 6, 4, { hidden: true }))
+  // Markers
+  quest = addElement(quest, createElement('marker', 'stairway', 0, 18, { metadata: { role: 'start' } }))
+  quest = addElement(quest, createElement('marker', 'a', 20, 3))
   return quest
 }
 
