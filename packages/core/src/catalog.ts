@@ -37,6 +37,7 @@ export const CATALOG: CatalogEntry[] = [
   { type: 'furniture', subtype: 'rack', label: 'Rack', width: 1, height: 2 },
   { type: 'furniture', subtype: 'weaponsrack', label: 'Weapons Rack', width: 1, height: 2 },
   { type: 'furniture', subtype: 'throne', label: 'Throne', width: 1, height: 1 },
+  { type: 'furniture', subtype: 'coffin', label: 'Coffin', width: 1, height: 2 },
   { type: 'furniture', subtype: 'tomb', label: 'Tomb', width: 2, height: 1 },
   { type: 'furniture', subtype: 'sorcererstable', label: 'Sorcerer Table', width: 2, height: 1 },
   { type: 'furniture', subtype: 'fireplace', label: 'Fireplace', width: 2, height: 1 },
