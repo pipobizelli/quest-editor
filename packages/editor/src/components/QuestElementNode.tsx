@@ -69,6 +69,7 @@ function StandardNode({
   onDragEnd: (id: string, x: number, y: number) => void;
 }) {
   const image = useAsset(element.type, element.subtype);
+  const catalogEntry = getCatalogEntry(element.type, element.subtype);
   const color = TYPE_COLORS[element.type] ?? "#999";
   const elWidth = (element.width ?? 1) * cellSize;
   const elHeight = (element.height ?? 1) * cellSize;
@@ -95,9 +96,11 @@ function StandardNode({
           image={image}
           areaWidth={elWidth}
           areaHeight={elHeight}
-          padding={getCatalogEntry(element.type, element.subtype)?.padding ?? 1}
+          padding={catalogEntry?.padding ?? 1}
           opacity={element.hidden ? 0.5 : 1}
           rotation={element.orientation === "horizontal" ? 90 : 0}
+          offsetX={catalogEntry?.offset?.x ?? 0}
+          offsetY={catalogEntry?.offset?.y ?? 0}
         />
       ) : element.type === 'marker' ? (
         <>
@@ -175,6 +178,7 @@ function DoorNode({
   onDragEnd: (id: string, x: number, y: number) => void;
 }) {
   const image = useAsset("door", element.subtype);
+  const catalogEntry = getCatalogEntry("door", element.subtype);
   const isVertical = element.orientation === "vertical";
   const doorThickness = 6;
   const doorLength = cellSize * 0.7;
@@ -225,7 +229,9 @@ function DoorNode({
               image={image}
               areaWidth={cellSize}
               areaHeight={stripWidth}
-              padding={2}
+              padding={catalogEntry?.padding ?? 2}
+              offsetX={catalogEntry?.offset?.x ?? 0}
+              offsetY={catalogEntry?.offset?.y ?? 0}
             />
           </Group>
         </Group>
@@ -256,8 +262,8 @@ function DoorNode({
 }
 
 /**
- * Renders a sprite image centered within an area, maintaining aspect ratio.
- * Supports rotation (rotates around center of area).
+ * Renders a sprite image centered within a node area, maintaining aspect ratio.
+ * When rotated, fits the sprite in pre-rotation dimensions then rotates around node center.
  */
 function SpriteImage({
   image,
@@ -266,6 +272,8 @@ function SpriteImage({
   padding = 4,
   opacity = 1,
   rotation = 0,
+  offsetX = 0,
+  offsetY = 0,
 }: {
   image: HTMLImageElement;
   areaWidth: number;
@@ -273,23 +281,29 @@ function SpriteImage({
   padding?: number;
   opacity?: number;
   rotation?: number;
+  offsetX?: number;
+  offsetY?: number;
 }) {
-  const availW = areaWidth - padding * 2;
-  const availH = areaHeight - padding * 2;
+  // When rotated 90°/-90°, fit sprite in the pre-rotation (swapped) dimensions
+  const isRotated = rotation === 90 || rotation === -90;
+  const fitW = (isRotated ? areaHeight : areaWidth) - padding * 2;
+  const fitH = (isRotated ? areaWidth : areaHeight) - padding * 2;
+
   const imgRatio = image.naturalWidth / image.naturalHeight;
-  const areaRatio = availW / availH;
+  const fitRatio = fitW / fitH;
 
   let drawW: number;
   let drawH: number;
 
-  if (imgRatio > areaRatio) {
-    drawW = availW;
-    drawH = availW / imgRatio;
+  if (imgRatio > fitRatio) {
+    drawW = fitW;
+    drawH = fitW / imgRatio;
   } else {
-    drawH = availH;
-    drawW = availH * imgRatio;
+    drawH = fitH;
+    drawW = fitH * imgRatio;
   }
 
+  // Rotate around the center of the node
   const centerX = areaWidth / 2;
   const centerY = areaHeight / 2;
 
@@ -298,14 +312,12 @@ function SpriteImage({
       x={centerX}
       y={centerY}
       rotation={rotation}
-      offsetX={centerX}
-      offsetY={centerY}
       listening={false}
     >
       <Image
         image={image}
-        x={padding + (availW - drawW) / 2}
-        y={padding + (availH - drawH) / 2}
+        x={-drawW / 2 + offsetX}
+        y={-drawH / 2 + offsetY}
         width={drawW}
         height={drawH}
         opacity={opacity}

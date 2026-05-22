@@ -37,9 +37,12 @@ export function QuestEditor({
   const doMoveElement = useStore(store, (s) => s.moveElement)
   const doAddElement = useStore(store, (s) => s.addElement)
   const placingEntry = useStore(store, (s) => s.placingEntry)
+  const placingOrientation = useStore(store, (s) => s.placingOrientation)
   const startPlacing = useStore(store, (s) => s.startPlacing)
   const stopPlacing = useStore(store, (s) => s.stopPlacing)
   const removeSelected = useStore(store, (s) => s.removeSelected)
+  const toggleOrientation = useStore(store, (s) => s.toggleOrientation)
+  const rotateSelected = useStore(store, (s) => s.rotateSelected)
   const tool = useStore(store, (s) => s.tool)
 
   const stageRef = useRef<Konva.Stage>(null)
@@ -103,6 +106,14 @@ export function QuestEditor({
       if (e.key === 'Escape') {
         store.getState().stopPlacing()
       }
+      if (e.key === 'r' || e.key === 'R') {
+        const state = store.getState()
+        if (state.tool === 'place') {
+          state.toggleOrientation()
+        } else if (state.selectedElementId) {
+          state.rotateSelected()
+        }
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -158,10 +169,15 @@ export function QuestEditor({
         const y = Math.floor((pointer.y - stage.y()) / stage.scaleY() / quest.board.cellSize)
 
         const entry = state.placingEntry
+        const orientation = state.placingOrientation
         const overrides: Partial<QuestElement> = {}
-        if (entry.width > 1) overrides.width = entry.width
-        if (entry.height > 1) overrides.height = entry.height
-        if (entry.type === 'door' && entry.subtype !== 'secret') {
+        if (orientation === 'horizontal') {
+          overrides.width = entry.height > 1 ? entry.height : entry.width
+          overrides.height = entry.width > 1 ? entry.width : entry.height
+          overrides.orientation = 'horizontal'
+        } else {
+          if (entry.width > 1) overrides.width = entry.width
+          if (entry.height > 1) overrides.height = entry.height
           overrides.orientation = 'vertical'
         }
 
@@ -180,10 +196,13 @@ export function QuestEditor({
     <div style={{ display: 'flex', height: containerHeight }}>
       <ElementPanel
         placingEntry={placingEntry}
+        placingOrientation={placingOrientation}
         selectedElementId={selectedElementId}
         onSelect={startPlacing}
         onDeselect={stopPlacing}
         onDeleteSelected={removeSelected}
+        onRotate={toggleOrientation}
+        onRotateSelected={rotateSelected}
       />
       <Stage
         ref={stageRef}

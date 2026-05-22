@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { ElementType, CatalogEntry } from '@quest-editor/core'
+import type { ElementType, CatalogEntry, Orientation } from '@quest-editor/core'
 import { LAYER_ORDER, getCatalogByType } from '@quest-editor/core'
 
 const TYPE_LABELS: Record<ElementType, string> = {
@@ -15,19 +15,25 @@ const TYPE_LABELS: Record<ElementType, string> = {
 
 export interface ElementPanelProps {
   placingEntry: CatalogEntry | null
+  placingOrientation: Orientation
   selectedElementId: string | null
   onSelect: (entry: CatalogEntry) => void
   onDeselect: () => void
   onDeleteSelected: () => void
+  onRotate: () => void
+  onRotateSelected: () => void
   assetBasePath?: string
 }
 
 export function ElementPanel({
   placingEntry,
+  placingOrientation,
   selectedElementId,
   onSelect,
   onDeselect,
   onDeleteSelected,
+  onRotate,
+  onRotateSelected,
   assetBasePath = '/assets',
 }: ElementPanelProps) {
   const [openCategory, setOpenCategory] = useState<ElementType | null>('hero')
@@ -43,16 +49,28 @@ export function ElementPanel({
     <div style={panelStyle}>
       <div style={headerStyle}>
         <span style={{ fontWeight: 600 }}>Elements</span>
-        {placingEntry && (
-          <button onClick={onDeselect} style={cancelBtnStyle}>
-            Cancel
-          </button>
-        )}
-        {selectedElementId && !placingEntry && (
-          <button onClick={onDeleteSelected} style={deleteBtnStyle}>
-            Delete
-          </button>
-        )}
+        <div style={{ display: 'flex', gap: 4 }}>
+          {placingEntry && (
+            <>
+              <button onClick={onRotate} style={rotateBtnStyle} title="Rotate (R)">
+                {placingOrientation === 'vertical' ? '↕' : '↔'}
+              </button>
+              <button onClick={onDeselect} style={cancelBtnStyle}>
+                Cancel
+              </button>
+            </>
+          )}
+          {selectedElementId && !placingEntry && (
+            <>
+              <button onClick={onRotateSelected} style={rotateBtnStyle} title="Rotate (R)">
+                ↻
+              </button>
+              <button onClick={onDeleteSelected} style={deleteBtnStyle}>
+                Delete
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <div style={listStyle}>
@@ -191,6 +209,16 @@ const entryLabelStyle: React.CSSProperties = {
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
   width: '100%',
+}
+
+const rotateBtnStyle: React.CSSProperties = {
+  padding: '3px 8px',
+  background: '#2a4a6b',
+  color: '#eee',
+  border: 'none',
+  borderRadius: 4,
+  cursor: 'pointer',
+  fontSize: 14,
 }
 
 const cancelBtnStyle: React.CSSProperties = {

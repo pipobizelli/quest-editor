@@ -7,6 +7,7 @@ export interface CatalogEntry {
   width: number
   height: number
   padding?: number
+  offset?: { x?: number, y?: number }
 }
 
 export const CATALOG: CatalogEntry[] = [
@@ -49,10 +50,10 @@ export const CATALOG: CatalogEntry[] = [
 
   // ── Doors ──
   { type: 'door', subtype: 'door', label: 'Door', width: 1, height: 1 },
-  { type: 'door', subtype: 'doorin', label: 'Door (In)', width: 1, height: 1 },
-  { type: 'door', subtype: 'doorout', label: 'Door (Out)', width: 1, height: 1 },
+  { type: 'door', subtype: 'doorin', label: 'Door (In)', width: 1, height: 1, padding: 0, offset: { y: 5 } },
+  { type: 'door', subtype: 'doorout', label: 'Door (Out)', width: 1, height: 1, padding: 0, offset: { y: 5 } },
   { type: 'door', subtype: 'doortrap', label: 'Door Trap', width: 1, height: 1 },
-  { type: 'door', subtype: 'doublearrowdoor', label: 'Double Arrow Door', width: 1, height: 1 },
+  { type: 'door', subtype: 'doublearrowdoor', label: 'Double Arrow Door', width: 1, height: 1, padding: 0, offset: { y: 5 } },
   { type: 'door', subtype: 'secret', label: 'Secret Door', width: 1, height: 1 },
 
   // ── Traps ──
