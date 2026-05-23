@@ -12,27 +12,27 @@ function describeElements(elements: QuestElement[]): string {
     groups.set(el.type, list)
   }
 
-  const parts: string[] = []
+  const lines: string[] = []
 
   const monsters = groups.get('monster')
-  if (monsters) parts.push(`Monsters: ${formatList(monsters)}`)
+  if (monsters) lines.push(`  <monsters>${formatList(monsters)}</monsters>`)
 
   const npcs = groups.get('npc')
-  if (npcs) parts.push(`NPCs: ${formatList(npcs)}`)
+  if (npcs) lines.push(`  <npcs>${formatList(npcs)}</npcs>`)
 
   const furniture = groups.get('furniture')
-  if (furniture) parts.push(`Furniture: ${formatList(furniture)}`)
+  if (furniture) lines.push(`  <furniture>${formatList(furniture)}</furniture>`)
 
   const traps = groups.get('trap')
-  if (traps) parts.push(`Hidden traps: ${formatList(traps)}`)
+  if (traps) lines.push(`  <hidden_traps>${formatList(traps)}</hidden_traps>`)
 
   const treasure = groups.get('treasure')
-  if (treasure) parts.push(`Treasure: ${formatList(treasure)}`)
+  if (treasure) lines.push(`  <treasure>${formatList(treasure)}</treasure>`)
 
   const doors = groups.get('door')
-  if (doors) parts.push(`Doors: ${formatList(doors)}`)
+  if (doors) lines.push(`  <doors>${formatList(doors)}</doors>`)
 
-  return parts.join('\n')
+  return lines.join('\n')
 }
 
 function formatList(items: string[]): string {
@@ -45,6 +45,17 @@ function formatList(items: string[]): string {
     .join(', ')
 }
 
+function getLanguageInstruction(language: string): string {
+  switch (language) {
+    case 'pt': return 'Brazilian Portuguese'
+    case 'es': return 'Spanish'
+    case 'fr': return 'French'
+    case 'de': return 'German'
+    case 'it': return 'Italian'
+    default: return 'English'
+  }
+}
+
 export function buildPrompt(
   quest: Quest,
   room: Room,
@@ -53,20 +64,51 @@ export function buildPrompt(
   const elements = getElementsByRoom(quest, room)
   const elementDesc = describeElements(elements)
 
-  return `You are a narrator for a dungeon crawling board game (HeroQuest style).
-A hero just opened a door and is looking into a room. Write a short, atmospheric narration (2-4 sentences) describing what they see.
+  return `You are a narrator for a dungeon crawling board game in the style of HeroQuest.
+A hero just opened a door revealing a new room. Your job is to write a short, atmospheric narration for the Game Master to read aloud.
 
-Quest: "${quest.name}"
-${quest.description ? `Quest context: ${quest.description}` : ''}
-${quest.notes ? `GM notes: ${quest.notes}` : ''}
+<quest>
+  <name>${quest.name}</name>
+${quest.description ? `  <description>${quest.description}</description>\n` : ''}\
+${quest.notes ? `  <gm_notes>${quest.notes}</gm_notes>\n` : ''}\
+</quest>
 
-Room contents:
-${elementDesc || 'The room appears empty.'}
+<room>
+${elementDesc || '  <empty>true</empty>'}
+</room>
 
-Rules:
-- Do NOT mention game mechanics, tile positions, or technical details.
-- Do NOT reveal hidden traps — only describe what is visible.
-- Write in ${language === 'pt' ? 'Brazilian Portuguese' : language === 'en' ? 'English' : language}.
-- Be atmospheric and immersive, suitable for a game master to read aloud.
-- Keep it short: 2-4 sentences max.`
+<rules>
+  <rule>Write 2-4 sentences maximum</rule>
+  <rule>NEVER mention game mechanics, tile positions, dice, or technical details</rule>
+  <rule>NEVER reveal hidden traps — describe only what is visible to the heroes</rule>
+  <rule>Be atmospheric and immersive, use sensory details (sight, sound, smell)</rule>
+  <rule>Mention the creatures and notable furniture naturally, not as a list</rule>
+  <rule>Write in ${getLanguageInstruction(language)}</rule>
+</rules>
+
+<examples>
+  <example>
+    <input>
+      <monsters>2x Skeleton</monsters>
+      <furniture>Table, Bookcase</furniture>
+    </input>
+    <output>A porta range ao abrir, revelando uma câmara empoeirada. Dois esqueletos erguem-se das sombras, suas armaduras enferrujadas rangendo a cada movimento. Uma mesa coberta de teias de aranha ocupa o centro da sala, enquanto uma estante repleta de tomos antigos se apoia contra a parede ao fundo.</output>
+  </example>
+  <example>
+    <input>
+      <empty>true</empty>
+    </input>
+    <output>O silêncio é a primeira coisa que os recebe ao abrir a porta. A sala está vazia, mas marcas no chão de pedra sugerem que algo — ou alguém — esteve aqui recentemente.</output>
+  </example>
+  <example>
+    <input>
+      <monsters>Gargoyle</monsters>
+      <furniture>Tomb, 2x Chest</furniture>
+      <treasure>Gold</treasure>
+    </input>
+    <output>Um frio sobrenatural invade o corredor quando a porta se abre. No centro da cripta, uma gárgula de pedra observa com olhos que parecem seguir cada movimento. Atrás dela, um sarcófago de mármore negro repousa entre dois baús ornamentados, e o brilho de moedas de ouro escapa por uma fresta.</output>
+  </example>
+</examples>
+
+Write the narration for this room. Output only the narration text, nothing else.`
 }
