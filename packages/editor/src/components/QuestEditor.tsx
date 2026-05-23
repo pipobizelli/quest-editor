@@ -7,6 +7,8 @@ import { Grid } from './Grid'
 import { QuestElementNode } from './QuestElementNode'
 import { ElementPanel } from './ElementPanel'
 import { createEditorStore, type EditorState } from '../store'
+import { ThemeContext, useEditorTheme } from '../ThemeContext'
+import { DEFAULT_THEME, THEMES, type EditorTheme } from '../themes'
 import type { StoreApi } from 'zustand'
 import { useStore } from 'zustand'
 
@@ -15,6 +17,8 @@ export interface QuestEditorProps {
   onChange?: (quest: Quest) => void
   width?: number
   height?: number
+  theme?: EditorTheme | string
+  showLabels?: boolean
 }
 
 const PANEL_WIDTH = 220
@@ -24,7 +28,10 @@ export function QuestEditor({
   onChange,
   width: containerWidth = 800,
   height: containerHeight = 600,
+  theme: themeProp,
+  showLabels = true,
 }: QuestEditorProps) {
+  const resolvedTheme = typeof themeProp === 'string' ? (THEMES[themeProp] ?? DEFAULT_THEME) : (themeProp ?? DEFAULT_THEME)
   const storeRef = useRef<StoreApi<EditorState> | null>(null)
   if (!storeRef.current) {
     storeRef.current = createEditorStore(externalQuest)
@@ -54,20 +61,31 @@ export function QuestEditor({
   const isDraggingRect = useRef(false)
   const canvasWidth = containerWidth - PANEL_WIDTH
 
-  // Calculate initial scale and position to fit and center the board
+  // Calculate scale and position to fit and center the board
   const labelPadding = 20
   const boardPixelWidth = quest.board.width * quest.board.cellSize + labelPadding
   const boardPixelHeight = quest.board.height * quest.board.cellSize + labelPadding
-  const fitScale = Math.min(
-    canvasWidth / boardPixelWidth,
-    containerHeight / boardPixelHeight,
-  ) * 0.95
 
-  const [scale, setScale] = useState(fitScale)
-  const [stagePos, setStagePos] = useState({
-    x: (canvasWidth - boardPixelWidth * fitScale) / 2 + labelPadding * fitScale,
-    y: (containerHeight - boardPixelHeight * fitScale) / 2 + labelPadding * fitScale,
-  })
+  const getCenteredView = useCallback(() => {
+    const s = Math.min(canvasWidth / boardPixelWidth, containerHeight / boardPixelHeight) * 0.95
+    return {
+      scale: s,
+      pos: {
+        x: (canvasWidth - boardPixelWidth * s) / 2 + labelPadding * s,
+        y: (containerHeight - boardPixelHeight * s) / 2 + labelPadding * s,
+      },
+    }
+  }, [canvasWidth, containerHeight, boardPixelWidth, boardPixelHeight, labelPadding])
+
+  const initial = getCenteredView()
+  const [scale, setScale] = useState(initial.scale)
+  const [stagePos, setStagePos] = useState(initial.pos)
+
+  const recenter = useCallback(() => {
+    const v = getCenteredView()
+    setScale(v.scale)
+    setStagePos(v.pos)
+  }, [getCenteredView])
 
   // Group elements by type for layered rendering
   const elementsByType = useMemo(() => {
@@ -298,7 +316,8 @@ export function QuestEditor({
   }
 
   return (
-    <div style={{ display: 'flex', height: containerHeight }}>
+    <ThemeContext.Provider value={resolvedTheme}>
+    <div style={{ display: 'flex', height: containerHeight, background: resolvedTheme.canvasBg }}>
       <ElementPanel
         placingEntry={placingEntry}
         placingRotation={placingRotation}
@@ -310,6 +329,7 @@ export function QuestEditor({
         onRotateSelected={rotateSelected}
         tool={tool}
         onSetTool={setTool}
+        onRecenter={recenter}
       />
       <Stage
         ref={stageRef}
@@ -340,6 +360,7 @@ export function QuestEditor({
             layout={quest.layout}
             disabledTiles={quest.disabledTiles}
             dragRect={dragRect}
+            showLabels={showLabels}
           />
         </Layer>
 
@@ -364,5 +385,6 @@ export function QuestEditor({
         })}
       </Stage>
     </div>
+    </ThemeContext.Provider>
   )
 }

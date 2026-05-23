@@ -1,20 +1,22 @@
 import { Line, Rect, Text } from 'react-konva'
 import type { BoardConfig, BoardLayout, Position } from '@quest-editor/core'
+import { useEditorTheme } from '../ThemeContext'
 
 interface GridProps {
   board: BoardConfig
   layout: BoardLayout
   disabledTiles?: Position[]
   dragRect?: { x1: number; y1: number; x2: number; y2: number } | null
+  showLabels?: boolean
 }
 
-export function Grid({ board, layout, disabledTiles, dragRect }: GridProps) {
+export function Grid({ board, layout, disabledTiles, dragRect, showLabels = true }: GridProps) {
   const { width, height, cellSize } = board
+  const theme = useEditorTheme()
   const gridLines = []
   const wallLines = []
   const roomFills = []
 
-  // Room fills (lighter background for rooms)
   for (const room of layout.rooms) {
     roomFills.push(
       <Rect
@@ -23,18 +25,17 @@ export function Grid({ board, layout, disabledTiles, dragRect }: GridProps) {
         y={room.y * cellSize}
         width={room.width * cellSize}
         height={room.height * cellSize}
-        fill="#2a2a3e"
+        fill={theme.roomFill}
       />,
     )
   }
 
-  // Grid lines (thin, subtle)
   for (let i = 0; i <= width; i++) {
     gridLines.push(
       <Line
         key={`v-${i}`}
         points={[i * cellSize, 0, i * cellSize, height * cellSize]}
-        stroke="#333"
+        stroke={theme.gridLine}
         strokeWidth={0.5}
       />,
     )
@@ -44,15 +45,11 @@ export function Grid({ board, layout, disabledTiles, dragRect }: GridProps) {
       <Line
         key={`h-${j}`}
         points={[0, j * cellSize, width * cellSize, j * cellSize]}
-        stroke="#333"
+        stroke={theme.gridLine}
         strokeWidth={0.5}
       />,
     )
   }
-
-  // Walls (thick, prominent)
-  const wallStroke = '#c8b06b'
-  const wallWidth = 3
 
   for (let i = 0; i < layout.walls.length; i++) {
     const wall = layout.walls[i]
@@ -64,8 +61,8 @@ export function Grid({ board, layout, disabledTiles, dragRect }: GridProps) {
         <Line
           key={`wall-h-${i}`}
           points={[x, y, x + wall.length * cellSize, y]}
-          stroke={wallStroke}
-          strokeWidth={wallWidth}
+          stroke={theme.wallStroke}
+          strokeWidth={theme.wallWidth}
           lineCap="round"
         />,
       )
@@ -74,15 +71,14 @@ export function Grid({ board, layout, disabledTiles, dragRect }: GridProps) {
         <Line
           key={`wall-v-${i}`}
           points={[x, y, x, y + wall.length * cellSize]}
-          stroke={wallStroke}
-          strokeWidth={wallWidth}
+          stroke={theme.wallStroke}
+          strokeWidth={theme.wallWidth}
           lineCap="round"
         />,
       )
     }
   }
 
-  // Coordinate labels
   const labels = []
   for (let i = 0; i < width; i++) {
     labels.push(
@@ -93,7 +89,7 @@ export function Grid({ board, layout, disabledTiles, dragRect }: GridProps) {
         width={cellSize}
         text={String(i)}
         fontSize={10}
-        fill="#666"
+        fill={theme.labelColor}
         align="center"
       />,
     )
@@ -106,12 +102,11 @@ export function Grid({ board, layout, disabledTiles, dragRect }: GridProps) {
         y={j * cellSize + cellSize / 2 - 5}
         text={String(j)}
         fontSize={10}
-        fill="#666"
+        fill={theme.labelColor}
       />,
     )
   }
 
-  // Disabled tiles overlay
   const disabledOverlay = []
   if (disabledTiles) {
     for (const tile of disabledTiles) {
@@ -122,23 +117,22 @@ export function Grid({ board, layout, disabledTiles, dragRect }: GridProps) {
           y={tile.y * cellSize}
           width={cellSize}
           height={cellSize}
-          fill="#000"
-          opacity={0.5}
+          fill={theme.disabledFill}
+          opacity={theme.disabledOpacity}
         />,
       )
     }
   }
 
-  // Drag selection rectangle preview
   const dragRectNode = dragRect ? (
     <Rect
       x={Math.min(dragRect.x1, dragRect.x2) * cellSize}
       y={Math.min(dragRect.y1, dragRect.y2) * cellSize}
       width={(Math.abs(dragRect.x2 - dragRect.x1) + 1) * cellSize}
       height={(Math.abs(dragRect.y2 - dragRect.y1) + 1) * cellSize}
-      fill="#3498db"
+      fill={theme.dragRectFill}
       opacity={0.2}
-      stroke="#3498db"
+      stroke={theme.dragRectStroke}
       strokeWidth={1}
     />
   ) : null
@@ -149,7 +143,7 @@ export function Grid({ board, layout, disabledTiles, dragRect }: GridProps) {
       {gridLines}
       {disabledOverlay}
       {wallLines}
-      {labels}
+      {showLabels && labels}
       {dragRectNode}
     </>
   )

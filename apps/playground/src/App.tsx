@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { QuestEditor } from '@quest-editor/editor'
+import { QuestEditor, THEMES } from '@quest-editor/editor'
 import {
   createQuest,
   createElement,
@@ -35,8 +35,12 @@ function createSampleQuest(): Quest {
   return quest
 }
 
+const themeKeys = Object.keys(THEMES)
+
 export function App() {
   const [quest, setQuest] = useState(createSampleQuest)
+  const [themeId, setThemeId] = useState('dark')
+  const [showLabels, setShowLabels] = useState(true)
 
   const handleExport = useCallback(() => {
     const json = serialize(quest)
@@ -70,18 +74,35 @@ export function App() {
     input.click()
   }, [])
 
+  const theme = THEMES[themeId]
+
   return (
-    <div style={{ padding: 16 }}>
+    <div style={{ padding: 16, background: theme.canvasBg, minHeight: '100vh' }}>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 600 }}>Quest Editor</h1>
-        <button onClick={handleImport} style={btnStyle}>Import</button>
-        <button onClick={handleExport} style={btnStyle}>Export</button>
+        <h1 style={{ fontSize: 20, fontWeight: 600, color: theme.panelText }}>Quest Editor</h1>
+        <button onClick={handleImport} style={{ ...btnStyle, background: theme.btnBg, color: theme.btnColor, borderColor: theme.btnBorder }}>Import</button>
+        <button onClick={handleExport} style={{ ...btnStyle, background: theme.btnBg, color: theme.btnColor, borderColor: theme.btnBorder }}>Export</button>
+        <select
+          value={themeId}
+          onChange={(e) => setThemeId(e.target.value)}
+          style={{ ...btnStyle, background: theme.btnBg, color: theme.btnColor, borderColor: theme.btnBorder }}
+        >
+          {themeKeys.map((key) => (
+            <option key={key} value={key}>{THEMES[key].name}</option>
+          ))}
+        </select>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, color: theme.panelText, fontSize: 14, cursor: 'pointer' }}>
+          <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
+          Labels
+        </label>
       </div>
       <QuestEditor
         quest={quest}
         onChange={setQuest}
         width={window.innerWidth - 32}
         height={window.innerHeight - 80}
+        theme={themeId}
+        showLabels={showLabels}
       />
     </div>
   )
@@ -89,9 +110,7 @@ export function App() {
 
 const btnStyle: React.CSSProperties = {
   padding: '6px 16px',
-  background: '#16213e',
-  color: '#eee',
-  border: '1px solid #333',
+  border: '1px solid',
   borderRadius: 6,
   cursor: 'pointer',
   fontSize: 14,

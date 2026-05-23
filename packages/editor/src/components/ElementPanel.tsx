@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { ElementType, CatalogEntry } from '@quest-editor/core'
-import { LAYER_ORDER, getCatalogByType } from '@quest-editor/core'
+import { getCatalogByType } from '@quest-editor/core'
+import { useEditorTheme } from '../ThemeContext'
+import type { EditorTheme } from '../themes'
 
 const TYPE_LABELS: Record<ElementType, string> = {
   hero: 'Heroes',
@@ -24,6 +26,7 @@ export interface ElementPanelProps {
   onRotateSelected: () => void
   tool: string
   onSetTool: (tool: 'select' | 'place' | 'erase' | 'disable') => void
+  onRecenter: () => void
   assetBasePath?: string
 }
 
@@ -38,62 +41,70 @@ export function ElementPanel({
   onRotateSelected,
   tool,
   onSetTool,
+  onRecenter,
   assetBasePath = '/assets',
 }: ElementPanelProps) {
   const [openCategory, setOpenCategory] = useState<ElementType | null>('hero')
+  const t = useEditorTheme()
 
   const toggleCategory = (type: ElementType) => {
     setOpenCategory((prev) => (prev === type ? null : type))
   }
 
-  // Show categories in a logical order for the panel
   const panelOrder: ElementType[] = ['hero', 'monster', 'npc', 'furniture', 'door', 'trap', 'treasure', 'marker']
 
   return (
-    <div style={panelStyle}>
-      <div style={headerStyle}>
+    <div style={{ width: 220, background: t.panelBg, borderRight: `1px solid ${t.panelBorder}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
+      <div style={{ padding: '10px 12px', borderBottom: `1px solid ${t.panelBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14, color: t.panelText }}>
         <span style={{ fontWeight: 600 }}>Elements</span>
         <div style={{ display: 'flex', gap: 4 }}>
           {placingEntry && (
             <>
-              <button onClick={onRotate} style={rotateBtnStyle} title="Rotate (R)">
+              <button onClick={onRotate} style={{ padding: '3px 8px', background: t.rotateBtnBg, color: t.btnColor, border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 14 }} title="Rotate (R)">
                 ↻ {placingRotation}°
               </button>
-              <button onClick={onDeselect} style={cancelBtnStyle}>
+              <button onClick={onDeselect} style={{ padding: '3px 10px', background: t.btnBg, color: t.btnColor, border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>
                 Cancel
               </button>
             </>
           )}
           {selectedElementId && !placingEntry && (
             <>
-              <button onClick={onRotateSelected} style={rotateBtnStyle} title="Rotate (R)">
+              <button onClick={onRotateSelected} style={{ padding: '3px 8px', background: t.rotateBtnBg, color: t.btnColor, border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 14 }} title="Rotate (R)">
                 ↻
               </button>
-              <button onClick={onDeleteSelected} style={deleteBtnStyle}>
+              <button onClick={onDeleteSelected} style={{ padding: '3px 10px', background: t.deleteBtnBg, color: t.btnColor, border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>
                 Delete
               </button>
             </>
           )}
         </div>
       </div>
-      <div style={toolbarStyle}>
+      <div style={{ display: 'flex', gap: 4, padding: '6px 12px', borderBottom: `1px solid ${t.panelBorder}` }}>
         <button
           onClick={() => onSetTool('select')}
-          style={{ ...toolBtnStyle, ...(tool === 'select' ? toolActiveBtnStyle : {}) }}
-          title="Select (Esc)"
+          style={{ flex: 1, padding: '4px 8px', background: tool === 'select' ? t.toolBtnActiveBg : t.toolBtnBg, color: tool === 'select' ? t.toolBtnActiveColor : t.toolBtnColor, border: `1px solid ${tool === 'select' ? t.toolBtnActiveBorder : t.panelBorder}`, borderRadius: 4, cursor: 'pointer', fontSize: 11 }}
+          title="Select (S)"
         >
           Select
         </button>
         <button
           onClick={() => onSetTool('disable')}
-          style={{ ...toolBtnStyle, ...(tool === 'disable' ? toolActiveBtnStyle : {}) }}
+          style={{ flex: 1, padding: '4px 8px', background: tool === 'disable' ? t.toolBtnActiveBg : t.toolBtnBg, color: tool === 'disable' ? t.toolBtnActiveColor : t.toolBtnColor, border: `1px solid ${tool === 'disable' ? t.toolBtnActiveBorder : t.panelBorder}`, borderRadius: 4, cursor: 'pointer', fontSize: 11 }}
           title="Disable tiles (D)"
         >
           Disable
         </button>
+        <button
+          onClick={onRecenter}
+          style={{ padding: '4px 8px', background: t.toolBtnBg, color: t.toolBtnColor, border: `1px solid ${t.panelBorder}`, borderRadius: 4, cursor: 'pointer', fontSize: 11 }}
+          title="Recenter board"
+        >
+          ⌖
+        </button>
       </div>
 
-      <div style={listStyle}>
+      <div style={{ overflowY: 'auto', flex: 1 }}>
         {panelOrder.map((type) => {
           const entries = getCatalogByType(type)
           if (!entries.length) return null
@@ -103,35 +114,31 @@ export function ElementPanel({
             <div key={type}>
               <button
                 onClick={() => toggleCategory(type)}
-                style={categoryBtnStyle}
+                style={{ width: '100%', padding: '8px 12px', background: t.categoryBg, border: 'none', borderBottom: `1px solid ${t.categoryBorder}`, color: t.panelText, fontSize: 13, cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
               >
                 <span>{isOpen ? '▾' : '▸'} {TYPE_LABELS[type]}</span>
-                <span style={countStyle}>{entries.length}</span>
+                <span style={{ fontSize: 11, color: t.panelTextMuted }}>{entries.length}</span>
               </button>
               {isOpen && (
-                <div style={entriesGridStyle}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, padding: 6 }}>
                   {entries.map((entry) => {
                     const isActive = placingEntry?.type === entry.type && placingEntry?.subtype === entry.subtype
                     return (
                       <button
                         key={`${entry.type}-${entry.subtype}`}
                         onClick={() => isActive ? onDeselect() : onSelect(entry)}
-                        style={{
-                          ...entryBtnStyle,
-                          ...(isActive ? entryActiveBtnStyle : {}),
-                        }}
+                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: 6, background: isActive ? t.entryActiveBg : t.entryBg, border: `1px solid ${isActive ? t.entryActiveBorder : 'transparent'}`, borderRadius: 6, cursor: 'pointer', color: t.panelText }}
                         title={entry.label}
                       >
                         <img
                           src={`${assetBasePath}/${entry.type}/${entry.subtype}.png`}
                           alt={entry.label}
-                          style={entryImgStyle}
+                          style={{ width: 32, height: 32, objectFit: 'contain' }}
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display = 'none'
-                            ;(e.target as HTMLImageElement).nextElementSibling as HTMLElement
                           }}
                         />
-                        <span style={entryLabelStyle}>{entry.label}</span>
+                        <span style={{ fontSize: 10, textAlign: 'center', lineHeight: '1.2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>{entry.label}</span>
                       </button>
                     )
                   })}
@@ -143,144 +150,4 @@ export function ElementPanel({
       </div>
     </div>
   )
-}
-
-const toolbarStyle: React.CSSProperties = {
-  display: 'flex',
-  gap: 4,
-  padding: '6px 12px',
-  borderBottom: '1px solid #333',
-}
-
-const toolBtnStyle: React.CSSProperties = {
-  flex: 1,
-  padding: '4px 8px',
-  background: '#1a2540',
-  color: '#999',
-  border: '1px solid #333',
-  borderRadius: 4,
-  cursor: 'pointer',
-  fontSize: 11,
-}
-
-const toolActiveBtnStyle: React.CSSProperties = {
-  background: '#2a4a6b',
-  color: '#eee',
-  borderColor: '#3498db',
-}
-
-const panelStyle: React.CSSProperties = {
-  width: 220,
-  background: '#16213e',
-  borderRight: '1px solid #333',
-  display: 'flex',
-  flexDirection: 'column',
-  overflow: 'hidden',
-  flexShrink: 0,
-}
-
-const headerStyle: React.CSSProperties = {
-  padding: '10px 12px',
-  borderBottom: '1px solid #333',
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  fontSize: 14,
-}
-
-const listStyle: React.CSSProperties = {
-  overflowY: 'auto',
-  flex: 1,
-}
-
-const categoryBtnStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '8px 12px',
-  background: 'none',
-  border: 'none',
-  borderBottom: '1px solid #222',
-  color: '#ccc',
-  fontSize: 13,
-  cursor: 'pointer',
-  textAlign: 'left',
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-}
-
-const countStyle: React.CSSProperties = {
-  fontSize: 11,
-  color: '#666',
-}
-
-const entriesGridStyle: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: 4,
-  padding: 6,
-  background: '#111a2e',
-}
-
-const entryBtnStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: 4,
-  padding: 6,
-  background: '#1a2540',
-  border: '1px solid transparent',
-  borderRadius: 6,
-  cursor: 'pointer',
-  color: '#ccc',
-}
-
-const entryActiveBtnStyle: React.CSSProperties = {
-  border: '1px solid #3498db',
-  background: '#1a3050',
-}
-
-const entryImgStyle: React.CSSProperties = {
-  width: 32,
-  height: 32,
-  objectFit: 'contain',
-}
-
-const entryLabelStyle: React.CSSProperties = {
-  fontSize: 10,
-  textAlign: 'center',
-  lineHeight: '1.2',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-  width: '100%',
-}
-
-const rotateBtnStyle: React.CSSProperties = {
-  padding: '3px 8px',
-  background: '#2a4a6b',
-  color: '#eee',
-  border: 'none',
-  borderRadius: 4,
-  cursor: 'pointer',
-  fontSize: 14,
-}
-
-const cancelBtnStyle: React.CSSProperties = {
-  padding: '3px 10px',
-  background: '#333',
-  color: '#eee',
-  border: 'none',
-  borderRadius: 4,
-  cursor: 'pointer',
-  fontSize: 12,
-}
-
-const deleteBtnStyle: React.CSSProperties = {
-  padding: '3px 10px',
-  background: '#6b1a1a',
-  color: '#eee',
-  border: 'none',
-  borderRadius: 4,
-  cursor: 'pointer',
-  fontSize: 12,
 }
