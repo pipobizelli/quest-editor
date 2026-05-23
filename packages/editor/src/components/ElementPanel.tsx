@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { ElementType, CatalogEntry, Orientation } from '@quest-editor/core'
+import type { ElementType, CatalogEntry } from '@quest-editor/core'
 import { LAYER_ORDER, getCatalogByType } from '@quest-editor/core'
 
 const TYPE_LABELS: Record<ElementType, string> = {
@@ -15,7 +15,7 @@ const TYPE_LABELS: Record<ElementType, string> = {
 
 export interface ElementPanelProps {
   placingEntry: CatalogEntry | null
-  placingOrientation: Orientation
+  placingRotation: number
   selectedElementId: string | null
   onSelect: (entry: CatalogEntry) => void
   onDeselect: () => void
@@ -29,7 +29,7 @@ export interface ElementPanelProps {
 
 export function ElementPanel({
   placingEntry,
-  placingOrientation,
+  placingRotation,
   selectedElementId,
   onSelect,
   onDeselect,
@@ -57,7 +57,7 @@ export function ElementPanel({
           {placingEntry && (
             <>
               <button onClick={onRotate} style={rotateBtnStyle} title="Rotate (R)">
-                {placingOrientation === 'vertical' ? '↕' : '↔'}
+                ↻ {placingRotation}°
               </button>
               <button onClick={onDeselect} style={cancelBtnStyle}>
                 Cancel

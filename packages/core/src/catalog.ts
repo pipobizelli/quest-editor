@@ -54,7 +54,7 @@ export const CATALOG: CatalogEntry[] = [
   { type: 'door', subtype: 'doorout', label: 'Door (Out)', width: 1, height: 1, padding: 0, offset: { y: 5 } },
   { type: 'door', subtype: 'doortrap', label: 'Door Trap', width: 1, height: 1 },
   { type: 'door', subtype: 'doublearrowdoor', label: 'Double Arrow Door', width: 1, height: 1, padding: 0, offset: { y: 5 } },
-  { type: 'door', subtype: 'secret', label: 'Secret Door', width: 1, height: 1 },
+  { type: 'door', subtype: 'secret', label: 'Secret Door', width: 1, height: 1, offset: { y: -4 } },
 
   // ── Traps ──
   { type: 'trap', subtype: 'pittrap', label: 'Pit Trap', width: 1, height: 1 },

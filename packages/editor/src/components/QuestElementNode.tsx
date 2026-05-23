@@ -98,7 +98,7 @@ function StandardNode({
           areaHeight={elHeight}
           padding={catalogEntry?.padding ?? 1}
           opacity={element.hidden ? 0.5 : 1}
-          rotation={element.orientation === "horizontal" ? 90 : 0}
+          rotation={element.rotation ?? 0}
           offsetX={catalogEntry?.offset?.x ?? 0}
           offsetY={catalogEntry?.offset?.y ?? 0}
         />

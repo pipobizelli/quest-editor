@@ -39,11 +39,11 @@ export function QuestEditor({
   const doMoveElement = useStore(store, (s) => s.moveElement)
   const doAddElement = useStore(store, (s) => s.addElement)
   const placingEntry = useStore(store, (s) => s.placingEntry)
-  const placingOrientation = useStore(store, (s) => s.placingOrientation)
+  const placingRotation = useStore(store, (s) => s.placingRotation)
   const startPlacing = useStore(store, (s) => s.startPlacing)
   const stopPlacing = useStore(store, (s) => s.stopPlacing)
   const removeSelected = useStore(store, (s) => s.removeSelected)
-  const toggleOrientation = useStore(store, (s) => s.toggleOrientation)
+  const rotatePlacing = useStore(store, (s) => s.rotatePlacing)
   const rotateSelected = useStore(store, (s) => s.rotateSelected)
   const tool = useStore(store, (s) => s.tool)
   const dragRect = useStore(store, (s) => s.dragRect)
@@ -131,7 +131,7 @@ export function QuestEditor({
       if (e.key === 'r' || e.key === 'R') {
         const state = store.getState()
         if (state.tool === 'place') {
-          state.toggleOrientation()
+          state.rotatePlacing()
         } else if (state.selectedElementId) {
           state.rotateSelected()
         }
@@ -156,7 +156,7 @@ export function QuestEditor({
     const pointer = stage.getPointerPosition()
     if (!pointer) return
 
-    const scaleBy = 1.08
+    const scaleBy = 1.03
     const newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy
     const clampedScale = Math.max(0.3, Math.min(3, newScale))
 
@@ -259,16 +259,19 @@ export function QuestEditor({
         if (!tile) return
 
         const entry = state.placingEntry
-        const orientation = state.placingOrientation
-        const overrides: Partial<QuestElement> = {}
-        if (orientation === 'horizontal') {
+        const rotation = state.placingRotation
+        const swapped = rotation === 90 || rotation === 270
+        const overrides: Partial<QuestElement> = { rotation }
+        if (swapped) {
           overrides.width = entry.height > 1 ? entry.height : entry.width
           overrides.height = entry.width > 1 ? entry.width : entry.height
-          overrides.orientation = 'horizontal'
         } else {
           if (entry.width > 1) overrides.width = entry.width
           if (entry.height > 1) overrides.height = entry.height
-          overrides.orientation = 'vertical'
+        }
+        // Keep orientation for doors
+        if (entry.type === 'door' && entry.subtype !== 'secret') {
+          overrides.orientation = swapped ? 'horizontal' : 'vertical'
         }
 
         const element = createElement(entry.type, entry.subtype, tile.x, tile.y, overrides)
@@ -298,12 +301,12 @@ export function QuestEditor({
     <div style={{ display: 'flex', height: containerHeight }}>
       <ElementPanel
         placingEntry={placingEntry}
-        placingOrientation={placingOrientation}
+        placingRotation={placingRotation}
         selectedElementId={selectedElementId}
         onSelect={startPlacing}
         onDeselect={stopPlacing}
         onDeleteSelected={removeSelected}
-        onRotate={toggleOrientation}
+        onRotate={rotatePlacing}
         onRotateSelected={rotateSelected}
         tool={tool}
         onSetTool={setTool}

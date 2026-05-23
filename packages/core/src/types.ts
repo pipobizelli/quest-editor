@@ -24,9 +24,10 @@ export interface QuestElement {
   type: ElementType
   subtype: string
   position: Position
-  width?: number   // in tiles, default 1
-  height?: number  // in tiles, default 1
-  orientation?: Orientation
+  width?: number    // in tiles, default 1
+  height?: number   // in tiles, default 1
+  rotation?: number // degrees (0, 90, 180, 270, -90, etc.), default 0
+  orientation?: Orientation // kept for doors (vertical = right edge, horizontal = bottom edge)
   hidden?: boolean
   metadata?: Record<string, unknown>
 }
