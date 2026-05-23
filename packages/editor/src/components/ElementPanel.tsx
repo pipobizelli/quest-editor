@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import type { ElementType, CatalogEntry } from '@quest-editor/core'
+import type { ElementType, CatalogEntry, Quest } from '@quest-editor/core'
 import { getCatalogByType } from '@quest-editor/core'
 import { useEditorTheme } from '../ThemeContext'
 import type { EditorTheme } from '../themes'
+import type { EditorPlugin, LLMProvider } from '../plugins'
 
 const TYPE_LABELS: Record<ElementType, string> = {
   hero: 'Heroes',
@@ -27,6 +28,10 @@ export interface ElementPanelProps {
   tool: string
   onSetTool: (tool: 'select' | 'place' | 'erase' | 'disable') => void
   onRecenter: () => void
+  plugins?: EditorPlugin[]
+  quest: Quest
+  onUpdateQuest: (quest: Quest) => void
+  llmProvider?: LLMProvider
   assetBasePath?: string
 }
 
@@ -42,6 +47,10 @@ export function ElementPanel({
   tool,
   onSetTool,
   onRecenter,
+  plugins = [],
+  quest,
+  onUpdateQuest,
+  llmProvider,
   assetBasePath = '/assets',
 }: ElementPanelProps) {
   const [openCategory, setOpenCategory] = useState<ElementType | null>('hero')
@@ -147,6 +156,16 @@ export function ElementPanel({
             </div>
           )
         })}
+        {plugins.map((plugin) =>
+          plugin.PanelSection ? (
+            <plugin.PanelSection
+              key={plugin.id}
+              quest={quest}
+              onUpdateQuest={onUpdateQuest}
+              llmProvider={llmProvider}
+            />
+          ) : null,
+        )}
       </div>
     </div>
   )

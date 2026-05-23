@@ -9,6 +9,7 @@ import { ElementPanel } from './ElementPanel'
 import { createEditorStore, type EditorState } from '../store'
 import { ThemeContext, useEditorTheme } from '../ThemeContext'
 import { DEFAULT_THEME, THEMES, type EditorTheme } from '../themes'
+import type { EditorPlugin, LLMProvider } from '../plugins'
 import type { StoreApi } from 'zustand'
 import { useStore } from 'zustand'
 
@@ -19,6 +20,8 @@ export interface QuestEditorProps {
   height?: number
   theme?: EditorTheme | string
   showLabels?: boolean
+  plugins?: EditorPlugin[]
+  llmProvider?: LLMProvider
 }
 
 const PANEL_WIDTH = 220
@@ -30,6 +33,8 @@ export function QuestEditor({
   height: containerHeight = 600,
   theme: themeProp,
   showLabels = true,
+  plugins = [],
+  llmProvider,
 }: QuestEditorProps) {
   const resolvedTheme = typeof themeProp === 'string' ? (THEMES[themeProp] ?? DEFAULT_THEME) : (themeProp ?? DEFAULT_THEME)
   const storeRef = useRef<StoreApi<EditorState> | null>(null)
@@ -330,6 +335,10 @@ export function QuestEditor({
         tool={tool}
         onSetTool={setTool}
         onRecenter={recenter}
+        plugins={plugins}
+        quest={quest}
+        onUpdateQuest={(q) => store.getState().setQuest(q)}
+        llmProvider={llmProvider}
       />
       <Stage
         ref={stageRef}

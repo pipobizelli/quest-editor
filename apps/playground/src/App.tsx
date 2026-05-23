@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react'
-import { QuestEditor, THEMES } from '@quest-editor/editor'
+import { useCallback, useMemo, useState } from 'react'
+import { QuestEditor, THEMES, type LLMProvider } from '@quest-editor/editor'
+import { NarratorPlugin } from '@quest-editor/plugin-narrator'
 import {
   createQuest,
   createElement,
@@ -41,6 +42,36 @@ export function App() {
   const [quest, setQuest] = useState(createSampleQuest)
   const [themeId, setThemeId] = useState('dark')
   const [showLabels, setShowLabels] = useState(true)
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('narrator-api-key') ?? '')
+
+  const llmProvider = useMemo<LLMProvider | undefined>(() => {
+    if (!apiKey) return undefined
+    return {
+      generate: async (prompt: string) => {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true',
+          },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-5-20250514',
+            max_tokens: 300,
+            messages: [{ role: 'user', content: prompt }],
+          }),
+        })
+        if (!res.ok) throw new Error(`API error: ${res.status}`)
+        const data = await res.json()
+        return data.content[0].text
+      },
+    }
+  }, [apiKey])
+
+  const plugins = useMemo(() => [
+    NarratorPlugin({ language: 'pt' }),
+  ], [])
 
   const handleExport = useCallback(() => {
     const json = serialize(quest)
@@ -95,6 +126,13 @@ export function App() {
           <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
           Labels
         </label>
+        <input
+          type="password"
+          value={apiKey}
+          onChange={(e) => { setApiKey(e.target.value); localStorage.setItem('narrator-api-key', e.target.value) }}
+          placeholder="Anthropic API key (narrator)"
+          style={{ ...inputStyle, background: theme.btnBg, color: theme.panelText, borderColor: theme.btnBorder, width: 200, fontSize: 12 }}
+        />
       </div>
       <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
         <input
@@ -127,6 +165,8 @@ export function App() {
         height={window.innerHeight - 200}
         theme={themeId}
         showLabels={showLabels}
+        plugins={plugins}
+        llmProvider={llmProvider}
       />
     </div>
   )

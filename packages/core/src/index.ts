@@ -31,3 +31,5 @@ export type { CatalogEntry } from './catalog'
 export { CATALOG, getCatalogByType, getCatalogEntry } from './catalog'
 
 export { isTileDisabled, toggleTile, toggleTilesRect } from './tiles'
+
+export { getElementsByRoom, getElementsByAllRooms } from './rooms'

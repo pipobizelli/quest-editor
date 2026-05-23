@@ -1,0 +1,13 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "jsx": "react-jsx",
+    "paths": {
+      "@quest-editor/core": ["../../core/src"],
+      "@quest-editor/editor": ["../../editor/src"]
+    }
+  },
+  "include": ["src"]
+}
