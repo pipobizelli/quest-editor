@@ -96,11 +96,35 @@ export function App() {
           Labels
         </label>
       </div>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+        <input
+          value={quest.name}
+          onChange={(e) => setQuest({ ...quest, name: e.target.value })}
+          placeholder="Quest name"
+          style={{ ...inputStyle, background: theme.btnBg, color: theme.panelText, borderColor: theme.btnBorder, flex: 1 }}
+        />
+      </div>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+        <textarea
+          value={quest.description}
+          onChange={(e) => setQuest({ ...quest, description: e.target.value })}
+          placeholder="Quest description (markdown)"
+          rows={3}
+          style={{ ...inputStyle, background: theme.btnBg, color: theme.panelText, borderColor: theme.btnBorder, flex: 1, resize: 'vertical' }}
+        />
+        <textarea
+          value={quest.notes ?? ''}
+          onChange={(e) => setQuest({ ...quest, notes: e.target.value || undefined })}
+          placeholder="GM notes (markdown)"
+          rows={3}
+          style={{ ...inputStyle, background: theme.btnBg, color: theme.panelText, borderColor: theme.btnBorder, flex: 1, resize: 'vertical' }}
+        />
+      </div>
       <QuestEditor
         quest={quest}
         onChange={setQuest}
         width={window.innerWidth - 32}
-        height={window.innerHeight - 80}
+        height={window.innerHeight - 200}
         theme={themeId}
         showLabels={showLabels}
       />
@@ -114,4 +138,12 @@ const btnStyle: React.CSSProperties = {
   borderRadius: 6,
   cursor: 'pointer',
   fontSize: 14,
+}
+
+const inputStyle: React.CSSProperties = {
+  padding: '8px 12px',
+  border: '1px solid',
+  borderRadius: 6,
+  fontSize: 14,
+  fontFamily: 'system-ui, sans-serif',
 }
