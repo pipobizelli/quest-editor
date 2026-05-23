@@ -12,6 +12,7 @@
     "@quest-editor/core": "workspace:*",
     "@quest-editor/editor": "workspace:*",
     "@quest-editor/plugin-narrator": "workspace:*",
+    "@quest-editor/plugin-strategist": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

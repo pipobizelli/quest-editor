@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { QuestEditor, THEMES, type LLMProvider } from '@quest-editor/editor'
 import { NarratorPlugin } from '@quest-editor/plugin-narrator'
+import { StrategistPlugin } from '@quest-editor/plugin-strategist'
 import {
   createQuest,
   createElement,
@@ -71,6 +72,7 @@ export function App() {
 
   const plugins = useMemo(() => [
     NarratorPlugin({ language: 'pt' }),
+    StrategistPlugin({ language: 'pt' }),
   ], [])
 
   const handleExport = useCallback(() => {
