@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { QuestEditor, THEMES, type LLMProvider } from '@quest-editor/editor'
 import { NarratorPlugin } from '@quest-editor/plugin-narrator'
 import { StrategistPlugin } from '@quest-editor/plugin-strategist'
+import { ReinforcementsPlugin } from '@quest-editor/plugin-reinforcements'
 import {
   createQuest,
   createElement,
@@ -43,6 +44,7 @@ export function App() {
   const [quest, setQuest] = useState(createSampleQuest)
   const [themeId, setThemeId] = useState('dark')
   const [showLabels, setShowLabels] = useState(true)
+  const [showRoomIds, setShowRoomIds] = useState(false)
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('narrator-api-key') ?? '')
 
   const llmProvider = useMemo<LLMProvider | undefined>(() => {
@@ -69,6 +71,7 @@ export function App() {
   const plugins = useMemo(() => [
     NarratorPlugin({ language: 'pt' }),
     StrategistPlugin({ language: 'pt' }),
+    ReinforcementsPlugin({ language: 'pt' }),
   ], [])
 
   const handleExport = useCallback(() => {
@@ -124,6 +127,10 @@ export function App() {
           <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
           Labels
         </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, color: theme.panelText, fontSize: 14, cursor: 'pointer' }}>
+          <input type="checkbox" checked={showRoomIds} onChange={(e) => setShowRoomIds(e.target.checked)} />
+          Rooms
+        </label>
         <input
           type="password"
           value={apiKey}
@@ -163,6 +170,7 @@ export function App() {
         height={window.innerHeight - 200}
         theme={themeId}
         showLabels={showLabels}
+        showRoomIds={showRoomIds}
         plugins={plugins}
         llmProvider={llmProvider}
       />

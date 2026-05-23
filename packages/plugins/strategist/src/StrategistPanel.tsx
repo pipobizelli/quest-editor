@@ -28,24 +28,24 @@ export function createStrategistPanel(config: StrategistConfig) {
 
     if (!llmProvider) {
       return (
-        <div style={{ borderTop: '1px solid #444', padding: '8px 12px', fontSize: 11, opacity: 0.5 }}>
+        <div style={{ borderTop: '1px solid #555', padding: '8px 12px', fontSize: 11, color: '#888' }}>
           Strategist — no LLM provider configured
         </div>
       )
     }
 
     return (
-      <div style={{ borderTop: '1px solid #444', padding: '8px 0' }}>
+      <div style={{ borderTop: '1px solid #555', padding: '8px 0' }}>
         <div style={{ padding: '4px 12px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.7 }}>Strategist</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#ccc' }}>Strategist</span>
           <button
             onClick={generateStrategy}
             disabled={loading}
             style={{
               padding: '3px 8px',
               background: 'transparent',
-              border: '1px solid #555',
-              color: 'inherit',
+              border: '1px solid #666',
+              color: '#bbb',
               fontSize: 10,
               cursor: loading ? 'wait' : 'pointer',
               borderRadius: 3,
@@ -60,6 +60,7 @@ export function createStrategistPanel(config: StrategistConfig) {
             padding: '6px 12px',
             fontSize: 11,
             lineHeight: 1.5,
+            color: '#ddd',
             whiteSpace: 'pre-wrap',
             maxHeight: 300,
             overflowY: 'auto',

@@ -42,7 +42,7 @@ export function createNarratorPanel(config: NarratorConfig) {
 
     if (!llmProvider) {
       return (
-        <div style={{ borderTop: '1px solid #444', padding: '8px 12px', fontSize: 11, opacity: 0.5 }}>
+        <div style={{ borderTop: '1px solid #555', padding: '8px 12px', fontSize: 11, color: '#888' }}>
           Narrator — no LLM provider configured
         </div>
       )
@@ -51,8 +51,8 @@ export function createNarratorPanel(config: NarratorConfig) {
     const rooms = quest.layout.rooms.filter((room) => roomHasDoor(quest, room))
 
     return (
-      <div style={{ borderTop: '1px solid #444', padding: '8px 0' }}>
-        <div style={{ padding: '4px 12px 8px', fontSize: 12, fontWeight: 600, opacity: 0.7 }}>
+      <div style={{ borderTop: '1px solid #555', padding: '8px 0' }}>
+        <div style={{ padding: '4px 12px 8px', fontSize: 12, fontWeight: 600, color: '#ccc' }}>
           Narrator
         </div>
         {rooms.map((room) => {
@@ -70,12 +70,11 @@ export function createNarratorPanel(config: NarratorConfig) {
                     padding: '4px 8px',
                     background: narration ? '#1a3a1a' : 'transparent',
                     border: 'none',
-                    color: 'inherit',
+                    color: narration ? '#a0d0a0' : '#999',
                     fontSize: 11,
                     cursor: 'pointer',
                     textAlign: 'left',
                     borderRadius: 3,
-                    opacity: narration ? 1 : 0.6,
                   }}
                 >
                   {isExpanded ? '▾' : '▸'} {room.id}
@@ -86,8 +85,8 @@ export function createNarratorPanel(config: NarratorConfig) {
                   style={{
                     padding: '2px 6px',
                     background: 'transparent',
-                    border: '1px solid #555',
-                    color: 'inherit',
+                    border: '1px solid #666',
+                    color: '#bbb',
                     fontSize: 10,
                     cursor: isLoading ? 'wait' : 'pointer',
                     borderRadius: 3,
@@ -102,8 +101,8 @@ export function createNarratorPanel(config: NarratorConfig) {
                   style={{
                     padding: '6px 8px',
                     fontSize: 11,
-                    lineHeight: 1.4,
-                    opacity: 0.85,
+                    lineHeight: 1.5,
+                    color: '#ddd',
                     whiteSpace: 'pre-wrap',
                   }}
                 >

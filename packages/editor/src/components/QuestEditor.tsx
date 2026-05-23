@@ -20,6 +20,7 @@ export interface QuestEditorProps {
   height?: number
   theme?: EditorTheme | string
   showLabels?: boolean
+  showRoomIds?: boolean
   plugins?: EditorPlugin[]
   llmProvider?: LLMProvider
 }
@@ -33,6 +34,7 @@ export function QuestEditor({
   height: containerHeight = 600,
   theme: themeProp,
   showLabels = true,
+  showRoomIds = false,
   plugins = [],
   llmProvider,
 }: QuestEditorProps) {
@@ -370,6 +372,7 @@ export function QuestEditor({
             disabledTiles={quest.disabledTiles}
             dragRect={dragRect}
             showLabels={showLabels}
+            showRoomIds={showRoomIds}
           />
         </Layer>
 

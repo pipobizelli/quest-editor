@@ -13,6 +13,7 @@
     "@quest-editor/editor": "workspace:*",
     "@quest-editor/plugin-narrator": "workspace:*",
     "@quest-editor/plugin-strategist": "workspace:*",
+    "@quest-editor/plugin-reinforcements": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

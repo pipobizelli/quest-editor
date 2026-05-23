@@ -8,9 +8,10 @@ interface GridProps {
   disabledTiles?: Position[]
   dragRect?: { x1: number; y1: number; x2: number; y2: number } | null
   showLabels?: boolean
+  showRoomIds?: boolean
 }
 
-export function Grid({ board, layout, disabledTiles, dragRect, showLabels = true }: GridProps) {
+export function Grid({ board, layout, disabledTiles, dragRect, showLabels = true, showRoomIds = false }: GridProps) {
   const { width, height, cellSize } = board
   const theme = useEditorTheme()
   const gridLines = []
@@ -28,6 +29,19 @@ export function Grid({ board, layout, disabledTiles, dragRect, showLabels = true
         fill={theme.roomFill}
       />,
     )
+    if (showRoomIds) {
+      roomFills.push(
+        <Text
+          key={`roomid-${room.id}`}
+          x={room.x * cellSize + 4}
+          y={room.y * cellSize + 2}
+          text={room.id}
+          fontSize={8}
+          fill={theme.labelColor}
+          opacity={0.5}
+        />,
+      )
+    }
   }
 
   for (let i = 0; i <= width; i++) {
