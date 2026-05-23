@@ -49,23 +49,19 @@ export function App() {
     if (!apiKey) return undefined
     return {
       generate: async (prompt: string) => {
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true',
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+            }),
           },
-          body: JSON.stringify({
-            model: 'claude-sonnet-4-5-20250514',
-            max_tokens: 300,
-            messages: [{ role: 'user', content: prompt }],
-          }),
-        })
+        )
         if (!res.ok) throw new Error(`API error: ${res.status}`)
         const data = await res.json()
-        return data.content[0].text
+        return data.candidates[0].content.parts[0].text
       },
     }
   }, [apiKey])
@@ -132,7 +128,7 @@ export function App() {
           type="password"
           value={apiKey}
           onChange={(e) => { setApiKey(e.target.value); localStorage.setItem('narrator-api-key', e.target.value) }}
-          placeholder="Anthropic API key (narrator)"
+          placeholder="Gemini API key"
           style={{ ...inputStyle, background: theme.btnBg, color: theme.panelText, borderColor: theme.btnBorder, width: 200, fontSize: 12 }}
         />
       </div>
