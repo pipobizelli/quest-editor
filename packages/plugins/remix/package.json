@@ -1,0 +1,30 @@
+{
+  "name": "@quest-editor/plugin-remix",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "development": "./src/index.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --external react --external react-dom --external @quest-editor/core --external @quest-editor/editor",
+    "dev": "tsup src/index.ts --format esm --dts --external react --external react-dom --external @quest-editor/core --external @quest-editor/editor --watch"
+  },
+  "dependencies": {
+    "@quest-editor/core": "workspace:*",
+    "@quest-editor/editor": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "react": "^18.3.1",
+    "tsup": "^8.4.0"
+  }
+}

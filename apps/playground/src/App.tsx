@@ -3,6 +3,7 @@ import { QuestEditor, THEMES, type LLMProvider } from '@quest-editor/editor'
 import { NarratorPlugin } from '@quest-editor/plugin-narrator'
 import { StrategistPlugin } from '@quest-editor/plugin-strategist'
 import { ReinforcementsPlugin } from '@quest-editor/plugin-reinforcements'
+import { RemixPlugin } from '@quest-editor/plugin-remix'
 import {
   createQuest,
   createElement,
@@ -72,6 +73,7 @@ export function App() {
     NarratorPlugin({ language: 'pt' }),
     StrategistPlugin({ language: 'pt' }),
     ReinforcementsPlugin({ language: 'pt' }),
+    RemixPlugin({ language: 'pt' }),
   ], [])
 
   const handleExport = useCallback(() => {

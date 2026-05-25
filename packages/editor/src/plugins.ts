@@ -15,4 +15,7 @@ export interface PluginPanelProps {
   quest: Quest
   onUpdateQuest: (quest: Quest) => void
   llmProvider?: LLMProvider
+  lock: (reason?: string) => void
+  unlock: () => void
+  locked: boolean
 }

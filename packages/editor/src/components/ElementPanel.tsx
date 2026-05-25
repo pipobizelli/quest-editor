@@ -33,6 +33,9 @@ export interface ElementPanelProps {
   onUpdateQuest: (quest: Quest) => void
   llmProvider?: LLMProvider
   assetBasePath?: string
+  locked?: boolean
+  lock?: (reason?: string) => void
+  unlock?: () => void
 }
 
 export function ElementPanel({
@@ -52,6 +55,9 @@ export function ElementPanel({
   onUpdateQuest,
   llmProvider,
   assetBasePath = '/assets',
+  locked = false,
+  lock = () => {},
+  unlock = () => {},
 }: ElementPanelProps) {
   const [openCategory, setOpenCategory] = useState<ElementType | null>('hero')
   const t = useEditorTheme()
@@ -67,7 +73,7 @@ export function ElementPanel({
       <div style={{ padding: '10px 12px', borderBottom: `1px solid ${t.panelBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14, color: t.panelText }}>
         <span style={{ fontWeight: 600 }}>Elements</span>
         <div style={{ display: 'flex', gap: 4 }}>
-          {placingEntry && (
+          {!locked && placingEntry && (
             <>
               <button onClick={onRotate} style={{ padding: '3px 8px', background: t.rotateBtnBg, color: t.btnColor, border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 14 }} title="Rotate (R)">
                 ↻ {placingRotation}°
@@ -77,7 +83,7 @@ export function ElementPanel({
               </button>
             </>
           )}
-          {selectedElementId && !placingEntry && (
+          {!locked && selectedElementId && !placingEntry && (
             <>
               <button onClick={onRotateSelected} style={{ padding: '3px 8px', background: t.rotateBtnBg, color: t.btnColor, border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 14 }} title="Rotate (R)">
                 ↻
@@ -92,14 +98,16 @@ export function ElementPanel({
       <div style={{ display: 'flex', gap: 4, padding: '6px 12px', borderBottom: `1px solid ${t.panelBorder}` }}>
         <button
           onClick={() => onSetTool('select')}
-          style={{ flex: 1, padding: '4px 8px', background: tool === 'select' ? t.toolBtnActiveBg : t.toolBtnBg, color: tool === 'select' ? t.toolBtnActiveColor : t.toolBtnColor, border: `1px solid ${tool === 'select' ? t.toolBtnActiveBorder : t.panelBorder}`, borderRadius: 4, cursor: 'pointer', fontSize: 11 }}
+          disabled={locked}
+          style={{ flex: 1, padding: '4px 8px', background: tool === 'select' ? t.toolBtnActiveBg : t.toolBtnBg, color: tool === 'select' ? t.toolBtnActiveColor : t.toolBtnColor, border: `1px solid ${tool === 'select' ? t.toolBtnActiveBorder : t.panelBorder}`, borderRadius: 4, cursor: locked ? 'not-allowed' : 'pointer', fontSize: 11, opacity: locked ? 0.5 : 1 }}
           title="Select (S)"
         >
           Select
         </button>
         <button
           onClick={() => onSetTool('disable')}
-          style={{ flex: 1, padding: '4px 8px', background: tool === 'disable' ? t.toolBtnActiveBg : t.toolBtnBg, color: tool === 'disable' ? t.toolBtnActiveColor : t.toolBtnColor, border: `1px solid ${tool === 'disable' ? t.toolBtnActiveBorder : t.panelBorder}`, borderRadius: 4, cursor: 'pointer', fontSize: 11 }}
+          disabled={locked}
+          style={{ flex: 1, padding: '4px 8px', background: tool === 'disable' ? t.toolBtnActiveBg : t.toolBtnBg, color: tool === 'disable' ? t.toolBtnActiveColor : t.toolBtnColor, border: `1px solid ${tool === 'disable' ? t.toolBtnActiveBorder : t.panelBorder}`, borderRadius: 4, cursor: locked ? 'not-allowed' : 'pointer', fontSize: 11, opacity: locked ? 0.5 : 1 }}
           title="Disable tiles (D)"
         >
           Disable
@@ -135,7 +143,7 @@ export function ElementPanel({
                     return (
                       <button
                         key={`${entry.type}-${entry.subtype}`}
-                        onClick={() => isActive ? onDeselect() : onSelect(entry)}
+                        onClick={() => locked ? undefined : isActive ? onDeselect() : onSelect(entry)}
                         style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: 6, background: isActive ? t.entryActiveBg : t.entryBg, border: `1px solid ${isActive ? t.entryActiveBorder : 'transparent'}`, borderRadius: 6, cursor: 'pointer', color: t.panelText }}
                         title={entry.label}
                       >
@@ -163,6 +171,9 @@ export function ElementPanel({
               quest={quest}
               onUpdateQuest={onUpdateQuest}
               llmProvider={llmProvider}
+              locked={locked}
+              lock={lock}
+              unlock={unlock}
             />
           ) : null,
         )}

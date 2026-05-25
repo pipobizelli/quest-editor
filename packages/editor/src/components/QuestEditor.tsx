@@ -63,6 +63,10 @@ export function QuestEditor({
   const dragRect = useStore(store, (s) => s.dragRect)
   const setDragRect = useStore(store, (s) => s.setDragRect)
   const setTool = useStore(store, (s) => s.setTool)
+  const locked = useStore(store, (s) => s.locked)
+  const lockReason = useStore(store, (s) => s.lockReason)
+  const lock = useStore(store, (s) => s.lock)
+  const unlock = useStore(store, (s) => s.unlock)
 
   const stageRef = useRef<Konva.Stage>(null)
   const isDraggingRect = useRef(false)
@@ -341,61 +345,94 @@ export function QuestEditor({
         quest={quest}
         onUpdateQuest={(q) => store.getState().setQuest(q)}
         llmProvider={llmProvider}
+        locked={locked}
+        lock={lock}
+        unlock={unlock}
       />
-      <Stage
-        ref={stageRef}
-        width={canvasWidth}
-        height={containerHeight}
-        scaleX={scale}
-        scaleY={scale}
-        x={stagePos.x}
-        y={stagePos.y}
-        draggable={tool === 'select' || tool === 'place'}
-        onWheel={handleWheel}
-        onClick={handleStageClick}
-        onTap={handleStageClick}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        style={{ cursor: cursorMap[tool] }}
-        onDragEnd={(e) => {
-          if (e.target === stageRef.current) {
-            setStagePos({ x: e.target.x(), y: e.target.y() })
-          }
-        }}
-      >
-        {/* Board layer — grid + walls + disabled tiles (non-interactive) */}
-        <Layer listening={false}>
-          <Grid
-            board={quest.board}
-            layout={quest.layout}
-            disabledTiles={quest.disabledTiles}
-            dragRect={dragRect}
-            showLabels={showLabels}
-            showRoomIds={showRoomIds}
-          />
-        </Layer>
+      <div style={{ position: 'relative', flex: 1 }}>
+        <Stage
+          ref={stageRef}
+          width={canvasWidth}
+          height={containerHeight}
+          scaleX={scale}
+          scaleY={scale}
+          x={stagePos.x}
+          y={stagePos.y}
+          draggable={!locked && (tool === 'select' || tool === 'place')}
+          onWheel={handleWheel}
+          onClick={locked ? undefined : handleStageClick}
+          onTap={locked ? undefined : handleStageClick}
+          onMouseDown={locked ? undefined : handleMouseDown}
+          onMouseMove={locked ? undefined : handleMouseMove}
+          onMouseUp={locked ? undefined : handleMouseUp}
+          style={{ cursor: locked ? 'not-allowed' : cursorMap[tool], opacity: locked ? 0.45 : 1, transition: 'opacity 0.3s ease' }}
+          onDragEnd={(e) => {
+            if (e.target === stageRef.current) {
+              setStagePos({ x: e.target.x(), y: e.target.y() })
+            }
+          }}
+        >
+          {/* Board layer — grid + walls + disabled tiles (non-interactive) */}
+          <Layer listening={false}>
+            <Grid
+              board={quest.board}
+              layout={quest.layout}
+              disabledTiles={quest.disabledTiles}
+              dragRect={dragRect}
+              showLabels={showLabels}
+              showRoomIds={showRoomIds}
+            />
+          </Layer>
 
-        {/* Element layers — one per category, ordered back to front */}
-        {LAYER_ORDER.map((layerType) => {
-          const elements = elementsByType.get(layerType)
-          if (!elements?.length) return null
-          return (
-            <Layer key={layerType}>
-              {elements.map((el) => (
-                <QuestElementNode
-                  key={el.id}
-                  element={el}
-                  board={quest.board}
-                  isSelected={selectedElementIds.includes(el.id)}
-                  onSelect={selectElement}
-                  onDragEnd={handleDragEnd}
-                />
-              ))}
-            </Layer>
-          )
-        })}
-      </Stage>
+          {/* Element layers — one per category, ordered back to front */}
+          {LAYER_ORDER.map((layerType) => {
+            const elements = elementsByType.get(layerType)
+            if (!elements?.length) return null
+            return (
+              <Layer key={layerType} listening={!locked}>
+                {elements.map((el) => (
+                  <QuestElementNode
+                    key={el.id}
+                    element={el}
+                    board={quest.board}
+                    isSelected={selectedElementIds.includes(el.id)}
+                    onSelect={selectElement}
+                    onDragEnd={handleDragEnd}
+                  />
+                ))}
+              </Layer>
+            )
+          })}
+        </Stage>
+        {locked && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+          }}>
+            <div style={{
+              background: 'rgba(0,0,0,0.7)',
+              color: '#ccc',
+              padding: '12px 24px',
+              borderRadius: 8,
+              fontSize: 14,
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}>
+              <span style={{ fontSize: 18 }}>&#128274;</span>
+              {lockReason ?? 'Editor locked'}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
     </ThemeContext.Provider>
   )

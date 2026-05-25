@@ -29,6 +29,9 @@ importers:
       '@quest-editor/plugin-reinforcements':
         specifier: workspace:*
         version: link:../../packages/plugins/reinforcements
+      '@quest-editor/plugin-remix':
+        specifier: workspace:*
+        version: link:../../packages/plugins/remix
       '@quest-editor/plugin-strategist':
         specifier: workspace:*
         version: link:../../packages/plugins/strategist
@@ -112,6 +115,25 @@ importers:
         version: 8.5.1(postcss@8.5.15)(typescript@5.9.3)
 
   packages/plugins/reinforcements:
+    dependencies:
+      '@quest-editor/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@quest-editor/editor':
+        specifier: workspace:*
+        version: link:../../editor
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.18
+        version: 18.3.29
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      tsup:
+        specifier: ^8.4.0
+        version: 8.5.1(postcss@8.5.15)(typescript@5.9.3)
+
+  packages/plugins/remix:
     dependencies:
       '@quest-editor/core':
         specifier: workspace:*
