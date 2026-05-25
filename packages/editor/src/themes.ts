@@ -184,4 +184,4 @@ export const THEMES: Record<string, EditorTheme> = {
   },
 }
 
-export const DEFAULT_THEME = THEMES.dark
+export const DEFAULT_THEME = THEMES.stone

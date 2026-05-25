@@ -36,3 +36,14 @@ export { getElementsByRoom, getElementsByAllRooms, roomHasDoor } from './rooms'
 
 export type { MonsterStats } from './monster-stats'
 export { MONSTER_STATS, HERO_STATS, getMonsterStats, formatStatsTable } from './monster-stats'
+
+export {
+  RULES_COMBAT,
+  RULES_TRAPS,
+  RULES_DOORS_LOS,
+  RULES_HERO_SPELLS,
+  RULES_CHAOS_SPELLS,
+  RULES_ARMORY,
+  RULES_MONSTER_BEHAVIOR,
+  CREATURE_LORE,
+} from './game-rules'

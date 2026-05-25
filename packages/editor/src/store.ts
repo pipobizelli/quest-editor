@@ -104,6 +104,17 @@ export const createEditorStore = (initialQuest?: Partial<Quest>) =>
         if (!s.selectedElementId) return s
         const el = s.quest.elements.find((e) => e.id === s.selectedElementId)
         if (!el) return s
+
+        // Doors (non-secret) use orientation instead of rotation
+        if (el.type === 'door' && el.subtype !== 'secret') {
+          const newOrientation = el.orientation === 'vertical' ? 'horizontal' : 'vertical'
+          return {
+            quest: updateElement(s.quest, s.selectedElementId, {
+              orientation: newOrientation,
+            }),
+          }
+        }
+
         const currentRotation = el.rotation ?? 0
         const newRotation = normalizeRotation(currentRotation + 90)
         const w = el.width ?? 1

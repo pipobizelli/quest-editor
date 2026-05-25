@@ -5,6 +5,9 @@ import {
   getMonsterStats,
   formatStatsTable,
   MONSTER_STATS,
+  RULES_COMBAT,
+  RULES_TRAPS,
+  RULES_MONSTER_BEHAVIOR,
 } from '@quest-editor/core'
 
 function describeBoard(quest: Quest): string {
@@ -79,8 +82,20 @@ export function buildReinforcementsPrompt(
 ): string {
   const langName = language === 'pt' ? 'Brazilian Portuguese' : language === 'en' ? 'English' : language
 
-  return `You are a game designer for a HeroQuest-style dungeon crawling board game.
+  return `You are a game designer for a HeroQuest board game session.
 The Game Master wants to add extra monsters to make the quest more challenging, especially for quests where heroes must retrieve an item and return to the stairs.
+
+<game_rules>
+  <combat>
+${RULES_COMBAT}
+  </combat>
+  <monster_behavior>
+${RULES_MONSTER_BEHAVIOR}
+  </monster_behavior>
+  <traps>
+${RULES_TRAPS}
+  </traps>
+</game_rules>
 
 <quest>
   <name>${quest.name}</name>

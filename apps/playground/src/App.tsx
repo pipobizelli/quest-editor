@@ -42,7 +42,7 @@ const themeKeys = Object.keys(THEMES)
 
 export function App() {
   const [quest, setQuest] = useState(createSampleQuest)
-  const [themeId, setThemeId] = useState('dark')
+  const [themeId, setThemeId] = useState('stone')
   const [showLabels, setShowLabels] = useState(true)
   const [showRoomIds, setShowRoomIds] = useState(false)
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('narrator-api-key') ?? '')

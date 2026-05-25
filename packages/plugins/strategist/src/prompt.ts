@@ -6,6 +6,13 @@ import {
   formatStatsTable,
   MONSTER_STATS,
   HERO_STATS,
+  RULES_COMBAT,
+  RULES_TRAPS,
+  RULES_DOORS_LOS,
+  RULES_CHAOS_SPELLS,
+  RULES_HERO_SPELLS,
+  RULES_ARMORY,
+  RULES_MONSTER_BEHAVIOR,
 } from '@quest-editor/core'
 
 function describeRoomContents(quest: Quest, room: Room): string {
@@ -63,20 +70,26 @@ Analyze the quest board and suggest the best strategy for Zargon to challenge th
 
 <game_rules>
   <combat>
-    - Each turn: a player rolls 2d6 for movement, then may attack OR cast a spell
-    - Attack: roll Attack Dice, each skull = 1 hit
-    - Defend: roll Defend Dice, each shield = 1 block
-    - A creature dies when Body Points reach 0
-    - Monsters can only attack adjacent heroes (orthogonal, not diagonal)
-    - Undead (Skeleton, Zombie, Mummy) have Mind 0 and are immune to mind spells
+${RULES_COMBAT}
   </combat>
-  <zargon_rules>
-    - Zargon moves ALL monsters each turn, after hero turns
-    - Monsters are revealed when heroes open doors or enter rooms
-    - Zargon can move monsters through doors
-    - Monsters cannot move through other monsters or heroes
-    - Zargon should challenge heroes but keep the game enjoyable
-  </zargon_rules>
+  <monster_behavior>
+${RULES_MONSTER_BEHAVIOR}
+  </monster_behavior>
+  <doors_and_line_of_sight>
+${RULES_DOORS_LOS}
+  </doors_and_line_of_sight>
+  <traps>
+${RULES_TRAPS}
+  </traps>
+  <hero_spells>
+${RULES_HERO_SPELLS}
+  </hero_spells>
+  <chaos_spells>
+${RULES_CHAOS_SPELLS}
+  </chaos_spells>
+  <armory>
+${RULES_ARMORY}
+  </armory>
   <monster_stats>
 ${formatStatsTable(MONSTER_STATS)}
   </monster_stats>

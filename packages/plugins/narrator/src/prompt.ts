@@ -1,5 +1,5 @@
 import type { Quest, QuestElement, Room } from '@quest-editor/core'
-import { getElementsByRoom, getCatalogEntry } from '@quest-editor/core'
+import { getElementsByRoom, getCatalogEntry, CREATURE_LORE, RULES_TRAPS } from '@quest-editor/core'
 
 function describeElements(elements: QuestElement[]): string {
   const groups = new Map<string, string[]>()
@@ -64,7 +64,7 @@ export function buildPrompt(
   const elements = getElementsByRoom(quest, room)
   const elementDesc = describeElements(elements)
 
-  return `You are a narrator for a dungeon crawling board game in the style of HeroQuest.
+  return `You are a narrator for a HeroQuest board game session.
 A hero just opened a door revealing a new room. Your job is to write a short, atmospheric narration for the Game Master to read aloud.
 
 <quest>
@@ -77,11 +77,20 @@ ${quest.notes ? `  <gm_notes>${quest.notes}</gm_notes>\n` : ''}\
 ${elementDesc || '  <empty>true</empty>'}
 </room>
 
+<creature_lore>
+${CREATURE_LORE}
+</creature_lore>
+
+<trap_knowledge>
+${RULES_TRAPS}
+</trap_knowledge>
+
 <rules>
   <rule>Write 2-4 sentences maximum</rule>
   <rule>NEVER mention game mechanics, tile positions, dice, or technical details</rule>
-  <rule>NEVER reveal hidden traps — describe only what is visible to the heroes</rule>
+  <rule>NEVER reveal hidden traps — but you may add subtle atmospheric hints (cold drafts, loose stones, faint clicking sounds) without naming the trap type</rule>
   <rule>Be atmospheric and immersive, use sensory details (sight, sound, smell)</rule>
+  <rule>Use the creature_lore to describe monsters with rich, thematic detail — not just their names</rule>
   <rule>Mention the creatures and notable furniture naturally, not as a list</rule>
   <rule>Write in ${getLanguageInstruction(language)}</rule>
 </rules>
