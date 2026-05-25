@@ -1,6 +1,6 @@
 # Quest Editor
 
-A visual board editor for creating and editing HeroQuest-style dungeon quests. Built as a reusable library that can be embedded in any React application.
+A visual board editor for creating and editing HeroQuest dungeon quests. Built as a reusable library that can be embedded in any React application, with AI-powered plugins for narration, tactical analysis, and dynamic reinforcements.
 
 ## What it does
 
@@ -10,22 +10,38 @@ Key features:
 
 - **Interactive canvas** with zoom, pan, and drag-and-drop (mouse and touch)
 - **Accurate board layout** of the original HeroQuest board with all 23 rooms mapped, including L-shaped rooms
+- **AI plugins** — narrator, strategist, and reinforcements powered by any LLM provider
+- **HeroQuest rules** — full game rules reference integrated into plugin prompts
+- **Themes** — Dark, Stone (default), Parchment, Light
 - **Import/Export** quests as JSON files
 - **Reusable** — the editor is a standalone React component that can be dropped into any project
 
 ## Project structure
 
-This is a monorepo with three packages:
-
 ```
-packages/core      → @quest-editor/core     Types, quest logic, board layout, serialization
-packages/editor    → @quest-editor/editor   React component (react-konva + zustand)
-apps/playground    → playground             Demo app for development and testing
+quest-editor/
+├── apps/
+│   └── playground/              # Vite dev app for testing the editor
+├── packages/
+│   ├── core/                    # Game logic, types, catalog, board layout, rules
+│   ├── editor/                  # React editor component (Konva canvas + panel)
+│   └── plugins/
+│       ├── narrator/            # AI narration for room reveals
+│       ├── strategist/          # AI tactical advice for Zargon
+│       └── reinforcements/      # AI monster placement suggestions
+├── docs/                        # HeroQuest rules reference (for humans and LLMs)
+│   ├── heroquest-rules.md       # Core rules: turns, combat, movement, traps
+│   ├── heroquest-monsters.md    # Monster stats and behavior
+│   ├── heroquest-spells.md      # 12 Hero Spells + 12 Chaos Spells
+│   └── heroquest-armory.md      # Weapons, armor, items with prices
+└── package.json
 ```
 
-**`@quest-editor/core`** has zero UI dependencies. It exports types, board data, and pure functions for manipulating quests. Use it standalone if you only need the data layer.
+**`@quest-editor/core`** has zero UI dependencies. It exports types, board data, game rules constants, and pure functions for manipulating quests.
 
 **`@quest-editor/editor`** exports the `QuestEditor` React component and the zustand store factory. It depends on `react`, `react-dom`, `react-konva`, `konva`, and `zustand`.
+
+**Plugins** extend the editor with AI-powered panel sections. Each plugin builds structured prompts using HeroQuest rules from core.
 
 ## Usage
 
@@ -40,7 +56,7 @@ Then use the editor component:
 ```tsx
 import { useState } from 'react'
 import { QuestEditor } from '@quest-editor/editor'
-import { createQuest, serialize } from '@quest-editor/core'
+import { createQuest } from '@quest-editor/core'
 
 function App() {
   const [quest, setQuest] = useState(() => createQuest({ name: 'My Quest' }))
@@ -51,9 +67,43 @@ function App() {
       onChange={setQuest}
       width={800}
       height={600}
+      theme="stone"
     />
   )
 }
+```
+
+### With plugins
+
+```tsx
+import { QuestEditor, type LLMProvider } from '@quest-editor/editor'
+import { NarratorPlugin } from '@quest-editor/plugin-narrator'
+import { StrategistPlugin } from '@quest-editor/plugin-strategist'
+import { ReinforcementsPlugin } from '@quest-editor/plugin-reinforcements'
+
+const llmProvider: LLMProvider = {
+  generate: async (prompt) => {
+    // Call your LLM API here (Gemini, OpenAI, Claude, etc.)
+    const response = await callLLM(prompt)
+    return response.text
+  },
+}
+
+const plugins = [
+  NarratorPlugin({ language: 'pt' }),
+  StrategistPlugin({ language: 'pt' }),
+  ReinforcementsPlugin({ language: 'pt' }),
+]
+
+<QuestEditor
+  quest={quest}
+  onChange={setQuest}
+  width={800}
+  height={600}
+  theme="stone"
+  plugins={plugins}
+  llmProvider={llmProvider}
+/>
 ```
 
 ### Working with quest data
@@ -110,6 +160,53 @@ const loaded = deserialize(json)
 
 The default board layout matches the original HeroQuest board (26x19 grid). Non-rectangular rooms are supported by grouping multiple rectangles with a shared `group` field — walls between grouped rooms are automatically suppressed.
 
+## Plugins
+
+All plugins accept a `language` config (default: `'en'`, supports `'pt'` for Brazilian Portuguese and others).
+
+### Narrator
+
+Generates atmospheric room narrations when a hero opens a door. Uses creature lore for rich monster descriptions and trap awareness for subtle environmental hints (without revealing hidden traps).
+
+### Strategist
+
+Provides tactical advice for Zargon (the Game Master). Analyzes the full board and suggests monster positioning, ambush tactics, chokepoint defense, and spell usage. Has complete knowledge of HeroQuest rules: combat, spells (Hero + Chaos), traps, armory, and line of sight.
+
+### Reinforcements
+
+Suggests additional monster placements to increase quest difficulty. Outputs structured JSON with monster types, grid positions, and tactical reasons. Understands trap synergy and return-path blocking.
+
+## Game Rules
+
+The `docs/` folder contains the complete HeroQuest rules reference, serving as source of truth for both humans and LLM agents. These rules are also exported as TypeScript string constants from `@quest-editor/core`:
+
+```ts
+import {
+  RULES_COMBAT,
+  RULES_TRAPS,
+  RULES_DOORS_LOS,
+  RULES_HERO_SPELLS,
+  RULES_CHAOS_SPELLS,
+  RULES_ARMORY,
+  RULES_MONSTER_BEHAVIOR,
+  CREATURE_LORE,
+} from '@quest-editor/core'
+```
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `R` | Rotate selected/placing element |
+| `S` | Switch to Select tool |
+| `D` | Switch to Disable tile tool |
+| `Delete` / `Backspace` | Delete selected element(s) |
+| `Escape` | Cancel current action |
+
+## Themes
+
+Four built-in themes: `dark`, `stone` (default), `parchment`, `light`. Pass a theme name or a custom `EditorTheme` object to the `theme` prop.
+
 ## Development
 
 Requires Node >= 18 and pnpm.
@@ -132,3 +229,4 @@ pnpm build        # Build all packages
 | State | Zustand |
 | Build | Vite (playground), tsup (packages) |
 | Tests | Vitest |
+| Types | TypeScript 5 |
