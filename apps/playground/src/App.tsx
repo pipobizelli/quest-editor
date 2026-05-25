@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react'
-import { QuestEditor, THEMES, type LLMProvider } from '@quest-editor/editor'
+import { useCallback, useMemo, useRef, useState } from 'react'
+import { QuestEditor, THEMES, type LLMProvider, type QuestEditorHandle } from '@quest-editor/editor'
 import { NarratorPlugin } from '@quest-editor/plugin-narrator'
 import { StrategistPlugin } from '@quest-editor/plugin-strategist'
 import { ReinforcementsPlugin } from '@quest-editor/plugin-reinforcements'
@@ -42,6 +42,7 @@ function createSampleQuest(): Quest {
 const themeKeys = Object.keys(THEMES)
 
 export function App() {
+  const editorRef = useRef<QuestEditorHandle>(null)
   const [quest, setQuest] = useState(createSampleQuest)
   const [themeId, setThemeId] = useState('stone')
   const [showLabels, setShowLabels] = useState(true)
@@ -116,6 +117,16 @@ export function App() {
         <h1 style={{ fontSize: 20, fontWeight: 600, color: theme.panelText }}>Quest Editor</h1>
         <button onClick={handleImport} style={{ ...btnStyle, background: theme.btnBg, color: theme.btnColor, borderColor: theme.btnBorder }}>Import</button>
         <button onClick={handleExport} style={{ ...btnStyle, background: theme.btnBg, color: theme.btnColor, borderColor: theme.btnBorder }}>Export</button>
+        <button
+          onClick={() => {
+            const ed = editorRef.current
+            if (!ed) return
+            if (ed.isLocked()) { ed.unlock() } else { ed.lock('Locked for testing') }
+          }}
+          style={{ ...btnStyle, background: theme.btnBg, color: theme.btnColor, borderColor: theme.btnBorder }}
+        >
+          Lock
+        </button>
         <select
           value={themeId}
           onChange={(e) => setThemeId(e.target.value)}
@@ -166,6 +177,7 @@ export function App() {
         />
       </div>
       <QuestEditor
+        ref={editorRef}
         quest={quest}
         onChange={setQuest}
         width={window.innerWidth - 32}

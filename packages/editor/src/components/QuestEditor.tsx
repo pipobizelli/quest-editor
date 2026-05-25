@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
+import { useRef, useEffect, useState, useCallback, useMemo, useImperativeHandle, forwardRef } from 'react'
 import { Stage, Layer } from 'react-konva'
 import type { Quest, QuestElement, ElementType } from '@quest-editor/core'
 import { LAYER_ORDER, createElement } from '@quest-editor/core'
@@ -25,9 +25,15 @@ export interface QuestEditorProps {
   llmProvider?: LLMProvider
 }
 
+export interface QuestEditorHandle {
+  lock: (reason?: string) => void
+  unlock: () => void
+  isLocked: () => boolean
+}
+
 const PANEL_WIDTH = 220
 
-export function QuestEditor({
+export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(function QuestEditor({
   quest: externalQuest,
   onChange,
   width: containerWidth = 800,
@@ -37,7 +43,7 @@ export function QuestEditor({
   showRoomIds = false,
   plugins = [],
   llmProvider,
-}: QuestEditorProps) {
+}, ref) {
   const resolvedTheme = typeof themeProp === 'string' ? (THEMES[themeProp] ?? DEFAULT_THEME) : (themeProp ?? DEFAULT_THEME)
   const storeRef = useRef<StoreApi<EditorState> | null>(null)
   if (!storeRef.current) {
@@ -67,6 +73,12 @@ export function QuestEditor({
   const lockReason = useStore(store, (s) => s.lockReason)
   const lock = useStore(store, (s) => s.lock)
   const unlock = useStore(store, (s) => s.unlock)
+
+  useImperativeHandle(ref, () => ({
+    lock: (reason?: string) => store.getState().lock(reason),
+    unlock: () => store.getState().unlock(),
+    isLocked: () => store.getState().locked,
+  }), [store])
 
   const stageRef = useRef<Konva.Stage>(null)
   const isDraggingRect = useRef(false)
@@ -436,4 +448,4 @@ export function QuestEditor({
     </div>
     </ThemeContext.Provider>
   )
-}
+})

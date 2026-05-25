@@ -1,5 +1,5 @@
 export { QuestEditor } from './components/QuestEditor'
-export type { QuestEditorProps } from './components/QuestEditor'
+export type { QuestEditorProps, QuestEditorHandle } from './components/QuestEditor'
 export { createEditorStore } from './store'
 export type { EditorState } from './store'
 export { ElementPanel } from './components/ElementPanel'
