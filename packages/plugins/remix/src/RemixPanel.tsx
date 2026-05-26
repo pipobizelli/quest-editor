@@ -103,7 +103,7 @@ export function createRemixPanel(config: RemixConfig) {
       }
     }, [quest, difficulty, llmProvider, lock, unlock])
 
-    // Resolve element by ID, falling back to matching by subtype + position
+    // Resolve element by ID, falling back to matching by subtype and/or position
     const resolveElement = useCallback((
       elements: typeof quest.elements,
       id: string,
@@ -111,11 +111,24 @@ export function createRemixPanel(config: RemixConfig) {
     ) => {
       const byId = elements.find((e) => e.id === id)
       if (byId) return byId
-      // Fallback: match by subtype + position
-      if (hint?.subtype != null && hint.x != null && hint.y != null) {
-        return elements.find(
+      if (!hint) return undefined
+      // Fallback 1: match by subtype + position (most specific)
+      if (hint.subtype != null && hint.x != null && hint.y != null) {
+        const match = elements.find(
           (e) => e.subtype === hint.subtype && e.position.x === hint.x && e.position.y === hint.y,
         )
+        if (match) return match
+      }
+      // Fallback 2: match by position only (for repositions)
+      if (hint.x != null && hint.y != null) {
+        const match = elements.find(
+          (e) => e.position.x === hint.x && e.position.y === hint.y,
+        )
+        if (match) return match
+      }
+      // Fallback 3: match by subtype only — first match (for upgrades)
+      if (hint.subtype != null) {
+        return elements.find((e) => e.subtype === hint.subtype)
       }
       return undefined
     }, [])
