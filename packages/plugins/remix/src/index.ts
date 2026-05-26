@@ -8,7 +8,7 @@ export interface RemixConfig {
 export type { Difficulty } from './prompt'
 export { buildRemixPrompt } from './prompt'
 export type { RemixSuggestion, ApplySelection } from './apply'
-export { applyRemix, createDefaultSelection, normalizeSubtype, resolveElement } from './apply'
+export { applyRemix, createDefaultSelection, resolveElement } from './apply'
 
 export function RemixPlugin(config: RemixConfig = {}): EditorPlugin {
   return {

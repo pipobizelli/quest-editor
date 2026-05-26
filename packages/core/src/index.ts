@@ -32,6 +32,8 @@ export { CATALOG, getCatalogByType, getCatalogEntry } from './catalog'
 
 export { isTileDisabled, toggleTile, toggleTilesRect } from './tiles'
 
+export { normalizeSubtype, isDisabledTile, isOccupiedTile, isTileBlocked } from './validation'
+
 export type { RoomGroup } from './rooms'
 export { getElementsByRoom, getElementsByRooms, getElementsByAllRooms, roomHasDoor, isRoomValid, isRoomNarratable, getGroupedRooms, isGroupNarratable } from './rooms'
 

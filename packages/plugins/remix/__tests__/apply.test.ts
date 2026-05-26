@@ -6,11 +6,13 @@ import {
   type Quest,
 } from '@quest-editor/core'
 import {
-  resolveElement,
   normalizeSubtype,
   isDisabledTile,
   isOccupiedTile,
   isTileBlocked,
+} from '@quest-editor/core'
+import {
+  resolveElement,
   applyRemix,
   createDefaultSelection,
   type RemixSuggestion,

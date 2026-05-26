@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import type { PluginPanelProps } from '@quest-editor/editor'
-import { createElement, addElement } from '@quest-editor/core'
+import { createElement, addElement, normalizeSubtype, isTileBlocked } from '@quest-editor/core'
 import { buildReinforcementsPrompt } from './prompt'
 
 interface ReinforcementEntry {
@@ -55,7 +55,10 @@ export function createReinforcementsPanel(config: ReinforcementsConfig) {
       if (!suggestion) return
       let updated = quest
       for (const m of suggestion.monsters) {
-        const el = createElement('monster', m.subtype, m.x, m.y)
+        if (isTileBlocked(updated, m.x, m.y)) continue
+        const subtype = normalizeSubtype('monster', m.subtype)
+        if (!subtype) continue
+        const el = createElement('monster', subtype, m.x, m.y)
         updated = addElement(updated, el)
       }
       onUpdateQuest(updated)

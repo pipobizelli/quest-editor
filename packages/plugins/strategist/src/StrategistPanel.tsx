@@ -7,13 +7,14 @@ interface StrategistConfig {
 }
 
 export function createStrategistPanel(config: StrategistConfig) {
-  return function StrategistPanel({ quest, llmProvider }: PluginPanelProps) {
+  return function StrategistPanel({ quest, llmProvider, lock, unlock }: PluginPanelProps) {
     const [loading, setLoading] = useState(false)
     const [strategy, setStrategy] = useState<string | null>(null)
 
     const generateStrategy = useCallback(async () => {
       if (!llmProvider) return
       setLoading(true)
+      lock('Analyzing board...')
       try {
         const prompt = buildStrategyPrompt(quest, config.language)
         const text = await llmProvider.generate(prompt)
@@ -23,8 +24,9 @@ export function createStrategistPanel(config: StrategistConfig) {
         setStrategy('Error generating strategy. Check console.')
       } finally {
         setLoading(false)
+        unlock()
       }
-    }, [quest, llmProvider])
+    }, [quest, llmProvider, lock, unlock])
 
     if (!llmProvider) {
       return (
