@@ -34,6 +34,9 @@ export { isTileDisabled, toggleTile, toggleTilesRect } from './tiles'
 
 export { normalizeSubtype, isDisabledTile, isOccupiedTile, isTileBlocked } from './validation'
 
+export type { IssueSeverity, QuestIssue } from './validate'
+export { validateQuest } from './validate'
+
 export type { RoomGroup } from './rooms'
 export { getElementsByRoom, getElementsByRooms, getElementsByAllRooms, roomHasDoor, isRoomValid, isRoomNarratable, getGroupedRooms, isGroupNarratable } from './rooms'
 

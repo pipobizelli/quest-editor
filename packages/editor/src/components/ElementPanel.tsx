@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import type { ElementType, CatalogEntry, Quest } from '@quest-editor/core'
-import { getCatalogByType } from '@quest-editor/core'
+import { getCatalogByType, validateQuest, type QuestIssue } from '@quest-editor/core'
 import { useEditorTheme } from '../ThemeContext'
 import type { EditorTheme } from '../themes'
 import type { EditorPlugin, LLMProvider } from '../plugins'
@@ -60,7 +60,12 @@ export function ElementPanel({
   unlock = () => {},
 }: ElementPanelProps) {
   const [openCategory, setOpenCategory] = useState<ElementType | null>('hero')
+  const [showValidation, setShowValidation] = useState(false)
   const t = useEditorTheme()
+
+  const issues = useMemo(() => validateQuest(quest), [quest])
+  const errorCount = issues.filter((i) => i.severity === 'error').length
+  const warningCount = issues.filter((i) => i.severity === 'warning').length
 
   const toggleCategory = (type: ElementType) => {
     setOpenCategory((prev) => (prev === type ? null : type))
@@ -177,6 +182,63 @@ export function ElementPanel({
             />
           ) : null,
         )}
+        {/* Validation */}
+        <div style={{ borderTop: `1px solid ${t.panelBorder}`, padding: '8px 0' }}>
+          <button
+            onClick={() => setShowValidation((v) => !v)}
+            style={{
+              width: '100%',
+              padding: '4px 12px',
+              background: 'transparent',
+              border: 'none',
+              color: t.panelText,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              textAlign: 'left',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <span>{showValidation ? '▾' : '▸'} Validation</span>
+            {issues.length > 0 ? (
+              <span style={{ fontSize: 10, display: 'flex', gap: 4 }}>
+                {errorCount > 0 && <span style={{ color: '#e74c3c' }}>{errorCount} err</span>}
+                {warningCount > 0 && <span style={{ color: '#e67e22' }}>{warningCount} warn</span>}
+              </span>
+            ) : (
+              <span style={{ fontSize: 10, color: '#2ecc71' }}>OK</span>
+            )}
+          </button>
+          {showValidation && (
+            <div style={{ padding: '4px 8px' }}>
+              {issues.length === 0 ? (
+                <div style={{ padding: '4px 8px', fontSize: 11, color: '#2ecc71' }}>
+                  No issues found
+                </div>
+              ) : (
+                issues.map((issue, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      padding: '4px 8px',
+                      marginBottom: 3,
+                      fontSize: 10,
+                      lineHeight: 1.4,
+                      color: issue.severity === 'error' ? '#e74c3c' : '#e67e22',
+                      background: issue.severity === 'error' ? 'rgba(231,76,60,0.1)' : 'rgba(230,126,34,0.1)',
+                      borderLeft: `2px solid ${issue.severity === 'error' ? '#e74c3c' : '#e67e22'}`,
+                      borderRadius: '0 3px 3px 0',
+                    }}
+                  >
+                    {issue.message}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
