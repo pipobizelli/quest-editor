@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import type { Room } from '@quest-editor/core'
-import { roomHasDoor } from '@quest-editor/core'
+import { isRoomNarratable } from '@quest-editor/core'
 import type { PluginPanelProps } from '@quest-editor/editor'
 import type { NarratorConfig } from './types'
 import { buildPrompt } from './prompt'
@@ -48,7 +48,7 @@ export function createNarratorPanel(config: NarratorConfig) {
       )
     }
 
-    const rooms = quest.layout.rooms.filter((room) => roomHasDoor(quest, room))
+    const rooms = quest.layout.rooms.filter((room) => isRoomNarratable(quest, room))
 
     return (
       <div style={{ borderTop: '1px solid #555', padding: '8px 0' }}>
