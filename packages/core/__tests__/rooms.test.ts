@@ -6,6 +6,9 @@ import {
   roomHasDoor,
   isRoomValid,
   isRoomNarratable,
+  getGroupedRooms,
+  isGroupNarratable,
+  getElementsByRooms,
   type Quest,
   type Room,
 } from '../src'
@@ -150,5 +153,121 @@ describe('isRoomNarratable', () => {
     // Horizontal door on left wall — wrong
     quest = addElement(quest, createElement('door', 'door', 0, 1, { orientation: 'horizontal' }))
     expect(isRoomNarratable(quest, room)).toBe(false)
+  })
+})
+
+// ─── getGroupedRooms ─────────────────────────────────────────────────
+
+function questWithGroupedRooms(): Quest {
+  return createQuest({
+    layout: {
+      rooms: [
+        { id: 'room-a', x: 1, y: 1, width: 4, height: 3 },
+        { id: 'room-L-1', group: 'room-L', x: 10, y: 10, width: 4, height: 3 },
+        { id: 'room-L-2', group: 'room-L', x: 11, y: 13, width: 3, height: 1 },
+        { id: 'room-b', x: 20, y: 1, width: 3, height: 3 },
+      ],
+      walls: [],
+    },
+  })
+}
+
+describe('getGroupedRooms', () => {
+  it('groups rooms with same group field', () => {
+    const quest = questWithGroupedRooms()
+    const groups = getGroupedRooms(quest)
+    expect(groups).toHaveLength(3) // room-a, room-L (2 rooms), room-b
+  })
+
+  it('grouped rooms share a single group entry', () => {
+    const quest = questWithGroupedRooms()
+    const groups = getGroupedRooms(quest)
+    const lGroup = groups.find((g) => g.id === 'room-L')
+    expect(lGroup).toBeDefined()
+    expect(lGroup!.rooms).toHaveLength(2)
+    expect(lGroup!.rooms[0].id).toBe('room-L-1')
+    expect(lGroup!.rooms[1].id).toBe('room-L-2')
+  })
+
+  it('ungrouped rooms become their own group', () => {
+    const quest = questWithGroupedRooms()
+    const groups = getGroupedRooms(quest)
+    const roomA = groups.find((g) => g.id === 'room-a')
+    expect(roomA).toBeDefined()
+    expect(roomA!.rooms).toHaveLength(1)
+  })
+
+  it('preserves order (first room appearance)', () => {
+    const quest = questWithGroupedRooms()
+    const groups = getGroupedRooms(quest)
+    expect(groups[0].id).toBe('room-a')
+    expect(groups[1].id).toBe('room-L')
+    expect(groups[2].id).toBe('room-b')
+  })
+})
+
+// ─── isGroupNarratable ───────────────────────────────────────────────
+
+describe('isGroupNarratable', () => {
+  it('returns true when any room in group has door + valid tiles', () => {
+    let quest = questWithGroupedRooms()
+    // Door on left wall of room-L-1
+    quest = addElement(quest, createElement('door', 'door', 9, 10, { orientation: 'vertical' }))
+    const groups = getGroupedRooms(quest)
+    const lGroup = groups.find((g) => g.id === 'room-L')!
+    expect(isGroupNarratable(quest, lGroup)).toBe(true)
+  })
+
+  it('returns false when no room in group has a door', () => {
+    const quest = questWithGroupedRooms()
+    const groups = getGroupedRooms(quest)
+    const lGroup = groups.find((g) => g.id === 'room-L')!
+    expect(isGroupNarratable(quest, lGroup)).toBe(false)
+  })
+
+  it('returns false when all rooms in group are disabled', () => {
+    let quest = questWithGroupedRooms()
+    quest = addElement(quest, createElement('door', 'door', 9, 10, { orientation: 'vertical' }))
+    // Disable all tiles in both L-shaped rooms
+    const disabled = []
+    for (const room of quest.layout.rooms.filter((r) => r.group === 'room-L')) {
+      for (let x = room.x; x < room.x + room.width; x++) {
+        for (let y = room.y; y < room.y + room.height; y++) {
+          disabled.push({ x, y })
+        }
+      }
+    }
+    quest = { ...quest, disabledTiles: disabled }
+    const groups = getGroupedRooms(quest)
+    const lGroup = groups.find((g) => g.id === 'room-L')!
+    expect(isGroupNarratable(quest, lGroup)).toBe(false)
+  })
+})
+
+// ─── getElementsByRooms ──────────────────────────────────────────────
+
+describe('getElementsByRooms', () => {
+  it('returns elements from multiple rooms without duplicates', () => {
+    let quest = questWithGroupedRooms()
+    quest = addElement(quest, createElement('monster', 'orc', 11, 11))   // in room-L-1
+    quest = addElement(quest, createElement('monster', 'goblin', 12, 13)) // in room-L-2
+    quest = addElement(quest, createElement('monster', 'skeleton', 2, 2)) // in room-a (not in group)
+
+    const lRooms = quest.layout.rooms.filter((r) => r.group === 'room-L')
+    const elements = getElementsByRooms(quest, lRooms)
+    expect(elements).toHaveLength(2)
+    expect(elements.some((e) => e.subtype === 'orc')).toBe(true)
+    expect(elements.some((e) => e.subtype === 'goblin')).toBe(true)
+    expect(elements.some((e) => e.subtype === 'skeleton')).toBe(false)
+  })
+
+  it('deduplicates elements at room boundaries', () => {
+    let quest = questWithGroupedRooms()
+    // Element at a position that could be in overlapping room bounds
+    quest = addElement(quest, createElement('monster', 'orc', 11, 12))
+    const lRooms = quest.layout.rooms.filter((r) => r.group === 'room-L')
+    const elements = getElementsByRooms(quest, lRooms)
+    const orcCount = elements.filter((e) => e.subtype === 'orc').length
+    expect(orcCount).toBe(1)
   })
 })

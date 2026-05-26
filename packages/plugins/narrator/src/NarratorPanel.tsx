@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react'
-import type { Room } from '@quest-editor/core'
-import { isRoomNarratable } from '@quest-editor/core'
+import { useState, useCallback, useMemo } from 'react'
+import type { RoomGroup } from '@quest-editor/core'
+import { getGroupedRooms, isGroupNarratable } from '@quest-editor/core'
 import type { PluginPanelProps } from '@quest-editor/editor'
 import type { NarratorConfig } from './types'
 import { buildPrompt } from './prompt'
@@ -10,26 +10,29 @@ export function createNarratorPanel(config: NarratorConfig) {
     const [loading, setLoading] = useState<string | null>(null)
     const [narrations, setNarrations] = useState<Map<string, string>>(
       () => new Map(
-        quest.layout.rooms
-          .filter((r) => (quest as any).narrations?.[r.id])
-          .map((r) => [r.id, (quest as any).narrations[r.id]]),
+        Object.entries((quest as any).narrations ?? {}),
       ),
     )
-    const [expandedRoom, setExpandedRoom] = useState<string | null>(null)
+    const [expandedGroup, setExpandedGroup] = useState<string | null>(null)
 
-    const generateForRoom = useCallback(
-      async (room: Room) => {
+    const groups = useMemo(
+      () => getGroupedRooms(quest).filter((g) => isGroupNarratable(quest, g)),
+      [quest],
+    )
+
+    const generateForGroup = useCallback(
+      async (group: RoomGroup) => {
         if (!llmProvider) return
-        setLoading(room.id)
+        setLoading(group.id)
         try {
-          const prompt = buildPrompt(quest, room, config.language)
+          const prompt = buildPrompt(quest, group, config.language)
           const text = await llmProvider.generate(prompt)
           setNarrations((prev) => {
             const next = new Map(prev)
-            next.set(room.id, text)
+            next.set(group.id, text)
             return next
           })
-          const questNarrations = { ...((quest as any).narrations ?? {}), [room.id]: text }
+          const questNarrations = { ...((quest as any).narrations ?? {}), [group.id]: text }
           onUpdateQuest({ ...quest, narrations: questNarrations } as any)
         } catch (err) {
           console.error('Narrator error:', err)
@@ -48,23 +51,21 @@ export function createNarratorPanel(config: NarratorConfig) {
       )
     }
 
-    const rooms = quest.layout.rooms.filter((room) => isRoomNarratable(quest, room))
-
     return (
       <div style={{ borderTop: '1px solid #555', padding: '8px 0' }}>
         <div style={{ padding: '4px 12px 8px', fontSize: 12, fontWeight: 600, color: '#ccc' }}>
           Narrator
         </div>
-        {rooms.map((room) => {
-          const narration = narrations.get(room.id)
-          const isExpanded = expandedRoom === room.id
-          const isLoading = loading === room.id
+        {groups.map((group) => {
+          const narration = narrations.get(group.id)
+          const isExpanded = expandedGroup === group.id
+          const isLoading = loading === group.id
 
           return (
-            <div key={room.id} style={{ padding: '0 8px', marginBottom: 4 }}>
+            <div key={group.id} style={{ padding: '0 8px', marginBottom: 4 }}>
               <div style={{ display: 'flex', gap: 4 }}>
                 <button
-                  onClick={() => setExpandedRoom(isExpanded ? null : room.id)}
+                  onClick={() => setExpandedGroup(isExpanded ? null : group.id)}
                   style={{
                     flex: 1,
                     padding: '4px 8px',
@@ -77,10 +78,15 @@ export function createNarratorPanel(config: NarratorConfig) {
                     borderRadius: 3,
                   }}
                 >
-                  {isExpanded ? '▾' : '▸'} {room.id}
+                  {isExpanded ? '▾' : '▸'} {group.label}
+                  {group.rooms.length > 1 && (
+                    <span style={{ color: '#666', fontSize: 9, marginLeft: 4 }}>
+                      ({group.rooms.length} parts)
+                    </span>
+                  )}
                 </button>
                 <button
-                  onClick={() => generateForRoom(room)}
+                  onClick={() => generateForGroup(group)}
                   disabled={isLoading}
                   style={{
                     padding: '2px 6px',

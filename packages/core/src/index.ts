@@ -32,7 +32,8 @@ export { CATALOG, getCatalogByType, getCatalogEntry } from './catalog'
 
 export { isTileDisabled, toggleTile, toggleTilesRect } from './tiles'
 
-export { getElementsByRoom, getElementsByAllRooms, roomHasDoor, isRoomValid, isRoomNarratable } from './rooms'
+export type { RoomGroup } from './rooms'
+export { getElementsByRoom, getElementsByRooms, getElementsByAllRooms, roomHasDoor, isRoomValid, isRoomNarratable, getGroupedRooms, isGroupNarratable } from './rooms'
 
 export type { MonsterStats } from './monster-stats'
 export { MONSTER_STATS, HERO_STATS, getMonsterStats, formatStatsTable } from './monster-stats'

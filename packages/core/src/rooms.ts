@@ -78,6 +78,24 @@ export function getElementsByRoom(quest: Quest, room: Room): QuestElement[] {
 }
 
 /**
+ * Returns all elements whose position falls within any of the given rooms.
+ * Deduplicates by element id.
+ */
+export function getElementsByRooms(quest: Quest, rooms: Room[]): QuestElement[] {
+  const seen = new Set<string>()
+  const result: QuestElement[] = []
+  for (const room of rooms) {
+    for (const el of getElementsByRoom(quest, room)) {
+      if (!seen.has(el.id)) {
+        seen.add(el.id)
+        result.push(el)
+      }
+    }
+  }
+  return result
+}
+
+/**
  * Returns a map of room id → elements in that room.
  */
 export function getElementsByAllRooms(quest: Quest): Map<string, QuestElement[]> {
@@ -89,4 +107,51 @@ export function getElementsByAllRooms(quest: Quest): Map<string, QuestElement[]>
     }
   }
   return map
+}
+
+// ─── Grouped Rooms ───────────────────────────────────────────────────
+
+export interface RoomGroup {
+  /** ID for the group. Uses the group field if available, otherwise the single room's id. */
+  id: string
+  /** Label for display. Uses group name or room id. */
+  label: string
+  /** The rooms that make up this logical room. */
+  rooms: Room[]
+}
+
+/**
+ * Groups rooms by their `group` field. Rooms without a group become their own group.
+ * Returns groups in the order their first room appears in the layout.
+ */
+export function getGroupedRooms(quest: Quest): RoomGroup[] {
+  const groups: RoomGroup[] = []
+  const groupMap = new Map<string, RoomGroup>()
+
+  for (const room of quest.layout.rooms) {
+    if (room.group) {
+      let group = groupMap.get(room.group)
+      if (!group) {
+        group = { id: room.group, label: room.group, rooms: [] }
+        groupMap.set(room.group, group)
+        groups.push(group)
+      }
+      group.rooms.push(room)
+    } else {
+      groups.push({ id: room.id, label: room.id, rooms: [room] })
+    }
+  }
+
+  return groups
+}
+
+/**
+ * Returns true if a room group is narratable:
+ * - At least one room in the group has valid (non-disabled) tiles
+ * - At least one room in the group has a properly connected door
+ */
+export function isGroupNarratable(quest: Quest, group: RoomGroup): boolean {
+  const hasValidTiles = group.rooms.some((room) => isRoomValid(quest, room))
+  const hasDoor = group.rooms.some((room) => roomHasDoor(quest, room))
+  return hasValidTiles && hasDoor
 }

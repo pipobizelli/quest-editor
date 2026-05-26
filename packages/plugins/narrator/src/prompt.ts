@@ -1,5 +1,5 @@
-import type { Quest, QuestElement, Room } from '@quest-editor/core'
-import { getElementsByRoom, getCatalogEntry, CREATURE_LORE, RULES_TRAPS } from '@quest-editor/core'
+import type { Quest, QuestElement, Room, RoomGroup } from '@quest-editor/core'
+import { getElementsByRooms, getCatalogEntry, CREATURE_LORE, RULES_TRAPS } from '@quest-editor/core'
 
 function describeElements(elements: QuestElement[]): string {
   const groups = new Map<string, string[]>()
@@ -56,12 +56,17 @@ function getLanguageInstruction(language: string): string {
   }
 }
 
+/**
+ * Build a narration prompt for a room group (one or more rooms forming a logical room).
+ * For backwards compatibility, also accepts a single Room.
+ */
 export function buildPrompt(
   quest: Quest,
-  room: Room,
+  roomOrGroup: Room | RoomGroup,
   language: string = 'en',
 ): string {
-  const elements = getElementsByRoom(quest, room)
+  const rooms = 'rooms' in roomOrGroup ? roomOrGroup.rooms : [roomOrGroup]
+  const elements = getElementsByRooms(quest, rooms)
   const elementDesc = describeElements(elements)
 
   return `You are a narrator for a HeroQuest board game session.
