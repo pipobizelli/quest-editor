@@ -202,6 +202,10 @@ ${quest.notes ? `  <gm_notes>${quest.notes}</gm_notes>\n` : ''}\
 ${describeBoard(quest)}
 </board>
 
+<disabled_tiles>
+${(quest.disabledTiles ?? []).length > 0 ? (quest.disabledTiles ?? []).map((t) => `(${t.x},${t.y})`).join(' ') : 'none'}
+</disabled_tiles>
+
 <available_positions>
 ${getEmptyPositions(quest)}
 </available_positions>
@@ -225,7 +229,10 @@ UNDEAD family (immune to mind spells, Mind 0):
 <rules>
   <rule>Room structure, doors, stairway, and quest objective MUST NOT change</rule>
   <rule>Use element IDs when referencing existing elements for upgrades, repositions, and removals</rule>
-  <rule>New elements must be placed ONLY on available_positions (empty tiles)</rule>
+  <rule>New elements must be placed ONLY on available_positions (empty tiles). NEVER place anything on disabled tiles — they are walls/blocked squares</rule>
+  <rule>Repositioned elements must also land on valid available_positions, never on disabled tiles</rule>
+  <rule>Use ONLY these exact monster subtypes: goblin, orc, fimir, skeleton, zombie, mummy, chaos, gargoyle</rule>
+  <rule>Use ONLY these exact trap subtypes: pittrap, fallingrock, speartrap</rule>
   <rule>Furniture dimensions must fit within the target room</rule>
   <rule>Follow the remix_guidelines for what can/cannot change</rule>
   <rule>Follow the difficulty_guidelines for how much to change</rule>

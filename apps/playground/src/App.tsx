@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { QuestEditor, THEMES, type LLMProvider, type QuestEditorHandle } from '@quest-editor/editor'
 import { NarratorPlugin } from '@quest-editor/plugin-narrator'
 import { StrategistPlugin } from '@quest-editor/plugin-strategist'
@@ -6,44 +6,26 @@ import { ReinforcementsPlugin } from '@quest-editor/plugin-reinforcements'
 import { RemixPlugin } from '@quest-editor/plugin-remix'
 import {
   createQuest,
-  createElement,
-  addElement,
   serialize,
   deserialize,
   type Quest,
 } from '@quest-editor/core'
-
-function createSampleQuest(): Quest {
-  let quest = createQuest({ name: 'The Trial' })
-  // Heroes
-  quest = addElement(quest, createElement('hero', 'barbarian', 0, 0))
-  // Monsters
-  quest = addElement(quest, createElement('monster', 'goblin', 5, 3))
-  quest = addElement(quest, createElement('monster', 'skeleton', 8, 7))
-  quest = addElement(quest, createElement('monster', 'chaos', 12, 9))
-  // NPCs
-  quest = addElement(quest, createElement('npc', 'prisoner', 11, 9))
-  // Furniture
-  quest = addElement(quest, createElement('furniture', 'chest', 12, 5))
-  quest = addElement(quest, createElement('furniture', 'table', 2, 2, { width: 3, height: 2 }))
-  quest = addElement(quest, createElement('furniture', 'bookcase', 10, 8, { width: 3, height: 1 }))
-  // Doors
-  quest = addElement(quest, createElement('door', 'door', 4, 3, { orientation: 'vertical' }))
-  quest = addElement(quest, createElement('door', 'door', 8, 5, { orientation: 'horizontal' }))
-  quest = addElement(quest, createElement('door', 'secret', 9, 9))
-  // Traps
-  quest = addElement(quest, createElement('trap', 'pittrap', 6, 4, { hidden: true }))
-  // Markers
-  quest = addElement(quest, createElement('marker', 'stairway', 0, 17, { width: 2, height: 2, metadata: { role: 'start' } }))
-  quest = addElement(quest, createElement('marker', 'a', 20, 3))
-  return quest
-}
-
 const themeKeys = Object.keys(THEMES)
 
 export function App() {
   const editorRef = useRef<QuestEditorHandle>(null)
-  const [quest, setQuest] = useState(createSampleQuest)
+  const [quest, setQuest] = useState<Quest>(() => createQuest({ name: 'Loading...' }))
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    fetch('/quests/barak_tor.json')
+      .then((r) => r.text())
+      .then((json) => {
+        setQuest(deserialize(json))
+        setLoaded(true)
+      })
+      .catch(() => setLoaded(true))
+  }, [])
   const [themeId, setThemeId] = useState('stone')
   const [showLabels, setShowLabels] = useState(true)
   const [showRoomIds, setShowRoomIds] = useState(false)

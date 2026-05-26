@@ -1,57 +1,13 @@
 import { useState, useCallback } from 'react'
 import type { PluginPanelProps } from '@quest-editor/editor'
-import {
-  createElement,
-  addElement,
-  removeElement,
-  updateElement,
-  moveElement,
-  getCatalogEntry,
-} from '@quest-editor/core'
+import { getCatalogEntry } from '@quest-editor/core'
 import { buildRemixPrompt, type Difficulty } from './prompt'
-
-interface UpgradeEntry {
-  id: string
-  from: string
-  to: string
-  reason: string
-}
-
-interface RepositionEntry {
-  id: string
-  from: { x: number; y: number }
-  to: { x: number; y: number }
-  reason: string
-}
-
-interface AddMonsterEntry {
-  subtype: string
-  x: number
-  y: number
-  reason: string
-}
-
-interface AddTrapEntry {
-  subtype: string
-  x: number
-  y: number
-  reason: string
-}
-
-interface RemoveEntry {
-  id: string
-  reason: string
-}
-
-interface RemixSuggestion {
-  name: string
-  description: string
-  upgrades: UpgradeEntry[]
-  repositions: RepositionEntry[]
-  add_monsters: AddMonsterEntry[]
-  add_traps: AddTrapEntry[]
-  remove: RemoveEntry[]
-}
+import {
+  type RemixSuggestion,
+  type ApplySelection,
+  createDefaultSelection,
+  applyRemix,
+} from './apply'
 
 interface RemixConfig {
   language?: string
@@ -74,6 +30,7 @@ export function createRemixPanel(config: RemixConfig) {
     const [loading, setLoading] = useState(false)
     const [difficulty, setDifficulty] = useState<Difficulty>('hard')
     const [suggestion, setSuggestion] = useState<RemixSuggestion | null>(null)
+    const [selection, setSelection] = useState<ApplySelection | null>(null)
     const [error, setError] = useState<string | null>(null)
 
     const generate = useCallback(async () => {
@@ -88,12 +45,14 @@ export function createRemixPanel(config: RemixConfig) {
         const jsonStr = raw.replace(/```json?\n?/g, '').replace(/```/g, '').trim()
         const data = JSON.parse(jsonStr) as RemixSuggestion
 
+        data.upgrades = data.upgrades ?? []
+        data.repositions = data.repositions ?? []
+        data.add_monsters = data.add_monsters ?? []
+        data.add_traps = data.add_traps ?? []
         data.remove = data.remove ?? []
-        if (!data.upgrades || !data.repositions || !data.add_monsters || !data.add_traps) {
-          throw new Error('Invalid response format')
-        }
 
         setSuggestion(data)
+        setSelection(createDefaultSelection(data))
       } catch (err) {
         console.error('Remix error:', err)
         setError('Failed to generate. Try again.')
@@ -103,95 +62,34 @@ export function createRemixPanel(config: RemixConfig) {
       }
     }, [quest, difficulty, llmProvider, lock, unlock])
 
-    // Resolve element by ID, falling back to matching by subtype and/or position
-    const resolveElement = useCallback((
-      elements: typeof quest.elements,
-      id: string,
-      hint?: { subtype?: string; x?: number; y?: number },
+    const toggle = useCallback((
+      category: keyof ApplySelection,
+      index: number,
     ) => {
-      const byId = elements.find((e) => e.id === id)
-      if (byId) return byId
-      if (!hint) return undefined
-      // Fallback 1: match by subtype + position (most specific)
-      if (hint.subtype != null && hint.x != null && hint.y != null) {
-        const match = elements.find(
-          (e) => e.subtype === hint.subtype && e.position.x === hint.x && e.position.y === hint.y,
-        )
-        if (match) return match
-      }
-      // Fallback 2: match by position only (for repositions)
-      if (hint.x != null && hint.y != null) {
-        const match = elements.find(
-          (e) => e.position.x === hint.x && e.position.y === hint.y,
-        )
-        if (match) return match
-      }
-      // Fallback 3: match by subtype only — first match (for upgrades)
-      if (hint.subtype != null) {
-        return elements.find((e) => e.subtype === hint.subtype)
-      }
-      return undefined
+      setSelection((prev) => {
+        if (!prev) return prev
+        const arr = [...prev[category]]
+        arr[index] = !arr[index]
+        return { ...prev, [category]: arr }
+      })
     }, [])
 
+    const selectedCount = selection
+      ? Object.values(selection).flat().filter(Boolean).length
+      : 0
+
     const apply = useCallback(() => {
-      if (!suggestion) return
-      let updated = quest
-
-      // Apply name
-      updated = { ...updated, name: suggestion.name }
-
-      // Remove elements first (before repositions to free up tiles)
-      for (const r of suggestion.remove) {
-        const el = resolveElement(updated.elements, r.id)
-        if (el) {
-          updated = removeElement(updated, el.id)
-        }
-      }
-
-      // Apply upgrades (swap monster subtypes)
-      for (const u of suggestion.upgrades) {
-        const el = resolveElement(updated.elements, u.id, {
-          subtype: u.from,
-        })
-        if (el && el.type === 'monster') {
-          updated = updateElement(updated, el.id, { subtype: u.to })
-        }
-      }
-
-      // Apply repositions
-      for (const r of suggestion.repositions) {
-        const el = resolveElement(updated.elements, r.id, {
-          x: r.from.x,
-          y: r.from.y,
-        })
-        if (el) {
-          updated = moveElement(updated, el.id, r.to.x, r.to.y)
-        }
-      }
-
-      // Add new monsters
-      for (const m of suggestion.add_monsters) {
-        const el = createElement('monster', m.subtype, m.x, m.y)
-        updated = addElement(updated, el)
-      }
-
-      // Add new traps
-      for (const t of suggestion.add_traps) {
-        const el = createElement('trap', t.subtype, t.x, t.y, { hidden: true })
-        updated = addElement(updated, el)
-      }
-
+      if (!suggestion || !selection) return
+      const updated = applyRemix(quest, suggestion, selection)
       onUpdateQuest(updated)
       setSuggestion(null)
-    }, [quest, suggestion, onUpdateQuest, resolveElement])
+      setSelection(null)
+    }, [quest, suggestion, selection, onUpdateQuest])
 
     const dismiss = useCallback(() => {
       setSuggestion(null)
+      setSelection(null)
     }, [])
-
-    const totalChanges = suggestion
-      ? suggestion.upgrades.length + suggestion.repositions.length + suggestion.add_monsters.length + suggestion.add_traps.length + suggestion.remove.length
-      : 0
 
     if (!llmProvider) {
       return (
@@ -250,7 +148,7 @@ export function createRemixPanel(config: RemixConfig) {
           </div>
         )}
 
-        {suggestion && (
+        {suggestion && selection && (
           <div style={{ padding: '0 12px' }}>
             <div style={{ fontSize: 11, color: '#ccc', marginBottom: 8, lineHeight: 1.4 }}>
               {suggestion.description}
@@ -259,7 +157,7 @@ export function createRemixPanel(config: RemixConfig) {
             {suggestion.upgrades.length > 0 && (
               <ChangeSection title="Upgrades" color="#e67e22">
                 {suggestion.upgrades.map((u, i) => (
-                  <ChangeItem key={i} color="#e67e22">
+                  <ChangeItem key={i} color="#e67e22" checked={selection.upgrades[i]} onToggle={() => toggle('upgrades', i)}>
                     <span style={{ fontWeight: 600 }}>
                       {getCatalogEntry('monster', u.from)?.label ?? u.from} → {getCatalogEntry('monster', u.to)?.label ?? u.to}
                     </span>
@@ -275,7 +173,7 @@ export function createRemixPanel(config: RemixConfig) {
                   const el = quest.elements.find((e) => e.id === r.id)
                   const label = el ? (getCatalogEntry(el.type, el.subtype)?.label ?? el.subtype) : r.id
                   return (
-                    <ChangeItem key={i} color="#3498db">
+                    <ChangeItem key={i} color="#3498db" checked={selection.repositions[i]} onToggle={() => toggle('repositions', i)}>
                       <span style={{ fontWeight: 600 }}>
                         {label}: ({r.from.x},{r.from.y}) → ({r.to.x},{r.to.y})
                       </span>
@@ -289,7 +187,7 @@ export function createRemixPanel(config: RemixConfig) {
             {suggestion.add_monsters.length > 0 && (
               <ChangeSection title="New Monsters" color="#e74c3c">
                 {suggestion.add_monsters.map((m, i) => (
-                  <ChangeItem key={i} color="#e74c3c">
+                  <ChangeItem key={i} color="#e74c3c" checked={selection.add_monsters[i]} onToggle={() => toggle('add_monsters', i)}>
                     <span style={{ fontWeight: 600 }}>
                       {getCatalogEntry('monster', m.subtype)?.label ?? m.subtype} ({m.x},{m.y})
                     </span>
@@ -302,9 +200,9 @@ export function createRemixPanel(config: RemixConfig) {
             {suggestion.add_traps.length > 0 && (
               <ChangeSection title="New Traps" color="#f39c12">
                 {suggestion.add_traps.map((t, i) => (
-                  <ChangeItem key={i} color="#f39c12">
+                  <ChangeItem key={i} color="#f39c12" checked={selection.add_traps[i]} onToggle={() => toggle('add_traps', i)}>
                     <span style={{ fontWeight: 600 }}>
-                      {t.subtype} ({t.x},{t.y})
+                      {getCatalogEntry('trap', t.subtype)?.label ?? t.subtype} ({t.x},{t.y})
                     </span>
                     <div style={{ color: '#bbb' }}>{t.reason}</div>
                   </ChangeItem>
@@ -318,7 +216,7 @@ export function createRemixPanel(config: RemixConfig) {
                   const el = quest.elements.find((e) => e.id === r.id)
                   const label = el ? (getCatalogEntry(el.type, el.subtype)?.label ?? el.subtype) : r.id
                   return (
-                    <ChangeItem key={i} color="#95a5a6">
+                    <ChangeItem key={i} color="#95a5a6" checked={selection.remove[i]} onToggle={() => toggle('remove', i)}>
                       <span style={{ fontWeight: 600 }}>{label}</span>
                       <div style={{ color: '#bbb' }}>{r.reason}</div>
                     </ChangeItem>
@@ -330,18 +228,20 @@ export function createRemixPanel(config: RemixConfig) {
             <div style={{ display: 'flex', gap: 6, marginTop: 8, marginBottom: 8 }}>
               <button
                 onClick={apply}
+                disabled={selectedCount === 0}
                 style={{
                   flex: 1,
                   padding: '5px 8px',
-                  background: '#1a5a1a',
+                  background: selectedCount > 0 ? '#1a5a1a' : '#333',
                   border: 'none',
                   color: '#eee',
                   fontSize: 11,
-                  cursor: 'pointer',
+                  cursor: selectedCount > 0 ? 'pointer' : 'not-allowed',
                   borderRadius: 4,
+                  opacity: selectedCount > 0 ? 1 : 0.5,
                 }}
               >
-                Apply ({totalChanges} changes)
+                Apply ({selectedCount} changes)
               </button>
               <button
                 onClick={dismiss}
@@ -391,20 +291,38 @@ function ChangeSection({ title, color, children }: { title: string; color: strin
   )
 }
 
-function ChangeItem({ color, children }: { color: string; children: React.ReactNode }) {
+function ChangeItem({ color, checked, onToggle, children }: {
+  color: string
+  checked: boolean
+  onToggle: () => void
+  children: React.ReactNode
+}) {
   return (
     <div
+      onClick={onToggle}
       style={{
         padding: '4px 8px',
         marginBottom: 4,
-        background: `${color}15`,
-        borderLeft: `2px solid ${color}`,
+        background: checked ? `${color}15` : 'transparent',
+        borderLeft: `2px solid ${checked ? color : '#555'}`,
         borderRadius: '0 4px 4px 0',
         fontSize: 11,
-        color: '#ccc',
+        color: checked ? '#ccc' : '#666',
+        cursor: 'pointer',
+        opacity: checked ? 1 : 0.5,
+        display: 'flex',
+        gap: 6,
+        alignItems: 'flex-start',
       }}
     >
-      {children}
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onToggle}
+        onClick={(e) => e.stopPropagation()}
+        style={{ marginTop: 2, flexShrink: 0, accentColor: color }}
+      />
+      <div style={{ flex: 1 }}>{children}</div>
     </div>
   )
 }

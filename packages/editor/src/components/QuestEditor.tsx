@@ -439,7 +439,11 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
               alignItems: 'center',
               gap: 8,
             }}>
-              <span style={{ fontSize: 18 }}>&#128274;</span>
+              <svg width="18" height="18" viewBox="0 0 18 18" style={{ animation: 'quest-editor-spin 1s linear infinite' }}>
+                <circle cx="9" cy="9" r="7" fill="none" stroke="#555" strokeWidth="2" />
+                <circle cx="9" cy="9" r="7" fill="none" stroke="#ccc" strokeWidth="2" strokeDasharray="32" strokeDashoffset="24" strokeLinecap="round" />
+              </svg>
+              <style>{`@keyframes quest-editor-spin { to { transform: rotate(360deg) } }`}</style>
               {lockReason ?? 'Editor locked'}
             </div>
           </div>

@@ -3,88 +3,23 @@ import {
   createQuest,
   createElement,
   addElement,
-  removeElement,
-  updateElement,
-  moveElement,
   type Quest,
-  type QuestElement,
 } from '@quest-editor/core'
+import {
+  resolveElement,
+  normalizeSubtype,
+  isDisabledTile,
+  isOccupiedTile,
+  isTileBlocked,
+  applyRemix,
+  createDefaultSelection,
+  type RemixSuggestion,
+  type ApplySelection,
+} from '../src/apply'
 
-/**
- * Mirrors the resolveElement + apply logic from RemixPanel.
- * Extracted here so we can test it without React.
- */
-function resolveElement(
-  elements: QuestElement[],
-  id: string,
-  hint?: { subtype?: string; x?: number; y?: number },
-): QuestElement | undefined {
-  const byId = elements.find((e) => e.id === id)
-  if (byId) return byId
-  if (!hint) return undefined
-  // Fallback 1: subtype + position
-  if (hint.subtype != null && hint.x != null && hint.y != null) {
-    const match = elements.find(
-      (e) => e.subtype === hint.subtype && e.position.x === hint.x && e.position.y === hint.y,
-    )
-    if (match) return match
-  }
-  // Fallback 2: position only
-  if (hint.x != null && hint.y != null) {
-    const match = elements.find(
-      (e) => e.position.x === hint.x && e.position.y === hint.y,
-    )
-    if (match) return match
-  }
-  // Fallback 3: subtype only (first match)
-  if (hint.subtype != null) {
-    return elements.find((e) => e.subtype === hint.subtype)
-  }
-  return undefined
-}
+// ─── Helpers ─────────────────────────────────────────────────────────
 
-interface RemixSuggestion {
-  name: string
-  description: string
-  upgrades: { id: string; from: string; to: string; reason: string }[]
-  repositions: { id: string; from: { x: number; y: number }; to: { x: number; y: number }; reason: string }[]
-  add_monsters: { subtype: string; x: number; y: number; reason: string }[]
-  add_traps: { subtype: string; x: number; y: number; reason: string }[]
-  remove: { id: string; reason: string }[]
-}
-
-function applyRemix(quest: Quest, suggestion: RemixSuggestion): Quest {
-  let updated = { ...quest, name: suggestion.name }
-
-  for (const r of suggestion.remove) {
-    const el = resolveElement(updated.elements, r.id)
-    if (el) updated = removeElement(updated, el.id)
-  }
-
-  for (const u of suggestion.upgrades) {
-    const el = resolveElement(updated.elements, u.id, { subtype: u.from })
-    if (el && el.type === 'monster') {
-      updated = updateElement(updated, el.id, { subtype: u.to })
-    }
-  }
-
-  for (const r of suggestion.repositions) {
-    const el = resolveElement(updated.elements, r.id, { x: r.from.x, y: r.from.y })
-    if (el) updated = moveElement(updated, el.id, r.to.x, r.to.y)
-  }
-
-  for (const m of suggestion.add_monsters) {
-    updated = addElement(updated, createElement('monster', m.subtype, m.x, m.y))
-  }
-
-  for (const t of suggestion.add_traps) {
-    updated = addElement(updated, createElement('trap', t.subtype, t.x, t.y, { hidden: true }))
-  }
-
-  return updated
-}
-
-function sampleQuest() {
+function sampleQuest(): Quest {
   let quest = createQuest({ name: 'Original' })
   quest = addElement(quest, createElement('monster', 'goblin', 2, 2))
   quest = addElement(quest, createElement('monster', 'skeleton', 8, 7))
@@ -92,194 +27,373 @@ function sampleQuest() {
   return quest
 }
 
+function questWithDisabledTiles(): Quest {
+  const quest = sampleQuest()
+  return { ...quest, disabledTiles: [{ x: 10, y: 10 }, { x: 11, y: 10 }] }
+}
+
+function emptySuggestion(overrides?: Partial<RemixSuggestion>): RemixSuggestion {
+  return {
+    name: 'Test',
+    description: '',
+    upgrades: [],
+    repositions: [],
+    add_monsters: [],
+    add_traps: [],
+    remove: [],
+    ...overrides,
+  }
+}
+
+function allSelected(s: RemixSuggestion): ApplySelection {
+  return createDefaultSelection(s)
+}
+
+// ─── resolveElement ──────────────────────────────────────────────────
+
 describe('resolveElement', () => {
   it('resolves by exact ID', () => {
     const quest = sampleQuest()
     const goblin = quest.elements.find((e) => e.subtype === 'goblin')!
-    const resolved = resolveElement(quest.elements, goblin.id)
-    expect(resolved).toBeDefined()
-    expect(resolved!.id).toBe(goblin.id)
+    expect(resolveElement(quest.elements, goblin.id)).toBeDefined()
+    expect(resolveElement(quest.elements, goblin.id)!.id).toBe(goblin.id)
   })
 
-  it('falls back to subtype + position when ID is wrong', () => {
+  it('falls back to subtype + position', () => {
     const quest = sampleQuest()
     const resolved = resolveElement(quest.elements, 'fake-id', {
-      subtype: 'goblin',
-      x: 2,
-      y: 2,
+      subtype: 'goblin', x: 2, y: 2,
     })
+    expect(resolved).toBeDefined()
+    expect(resolved!.subtype).toBe('goblin')
+  })
+
+  it('falls back to position only', () => {
+    const quest = sampleQuest()
+    const resolved = resolveElement(quest.elements, 'fake-id', { x: 8, y: 7 })
+    expect(resolved).toBeDefined()
+    expect(resolved!.subtype).toBe('skeleton')
+  })
+
+  it('falls back to subtype only', () => {
+    const quest = sampleQuest()
+    const resolved = resolveElement(quest.elements, 'fake-id', { subtype: 'goblin' })
     expect(resolved).toBeDefined()
     expect(resolved!.subtype).toBe('goblin')
   })
 
   it('returns undefined when nothing matches', () => {
     const quest = sampleQuest()
-    const resolved = resolveElement(quest.elements, 'fake-id', {
-      subtype: 'gargoyle',
-      x: 99,
-      y: 99,
-    })
-    expect(resolved).toBeUndefined()
+    expect(resolveElement(quest.elements, 'fake-id', {
+      subtype: 'gargoyle', x: 99, y: 99,
+    })).toBeUndefined()
   })
 
   it('prefers exact ID over fallback', () => {
     const quest = sampleQuest()
     const skeleton = quest.elements.find((e) => e.subtype === 'skeleton')!
-    // Pass a hint that would match the goblin, but the ID matches the skeleton
     const resolved = resolveElement(quest.elements, skeleton.id, {
-      subtype: 'goblin',
-      x: 2,
-      y: 2,
+      subtype: 'goblin', x: 2, y: 2,
     })
     expect(resolved!.subtype).toBe('skeleton')
   })
 })
 
+// ─── normalizeSubtype ────────────────────────────────────────────────
+
+describe('normalizeSubtype', () => {
+  it('returns valid subtypes as-is', () => {
+    expect(normalizeSubtype('monster', 'goblin')).toBe('goblin')
+    expect(normalizeSubtype('monster', 'chaos')).toBe('chaos')
+    expect(normalizeSubtype('trap', 'pittrap')).toBe('pittrap')
+  })
+
+  it('normalizes common LLM aliases', () => {
+    expect(normalizeSubtype('monster', 'chaos_warrior')).toBe('chaos')
+    expect(normalizeSubtype('monster', 'Chaos Warrior')).toBe('chaos')
+    expect(normalizeSubtype('monster', 'chaoswarrior')).toBe('chaos')
+    expect(normalizeSubtype('trap', 'pit_trap')).toBe('pittrap')
+    expect(normalizeSubtype('trap', 'falling_block')).toBe('fallingrock')
+    expect(normalizeSubtype('trap', 'spear_trap')).toBe('speartrap')
+  })
+
+  it('handles collapsed forms', () => {
+    expect(normalizeSubtype('trap', 'pit trap')).toBe('pittrap')
+    expect(normalizeSubtype('trap', 'spear trap')).toBe('speartrap')
+  })
+
+  it('returns null for unknown subtypes', () => {
+    expect(normalizeSubtype('monster', 'dragon')).toBeNull()
+    expect(normalizeSubtype('monster', 'troll')).toBeNull()
+    expect(normalizeSubtype('trap', 'lava_pit')).toBeNull()
+  })
+
+  it('is case-insensitive', () => {
+    expect(normalizeSubtype('monster', 'GOBLIN')).toBe('goblin')
+    expect(normalizeSubtype('monster', 'Orc')).toBe('orc')
+  })
+})
+
+// ─── isDisabledTile ──────────────────────────────────────────────────
+
+describe('isDisabledTile', () => {
+  it('returns true for disabled tiles', () => {
+    const quest = questWithDisabledTiles()
+    expect(isDisabledTile(quest, 10, 10)).toBe(true)
+    expect(isDisabledTile(quest, 11, 10)).toBe(true)
+  })
+
+  it('returns false for non-disabled tiles', () => {
+    const quest = questWithDisabledTiles()
+    expect(isDisabledTile(quest, 5, 5)).toBe(false)
+  })
+
+  it('handles quest without disabled tiles', () => {
+    const quest = sampleQuest()
+    expect(isDisabledTile(quest, 5, 5)).toBe(false)
+  })
+})
+
+// ─── isOccupiedTile ──────────────────────────────────────────────────
+
+describe('isOccupiedTile', () => {
+  it('returns true for tile with a 1x1 element', () => {
+    const quest = sampleQuest()
+    expect(isOccupiedTile(quest.elements, 2, 2)).toBe(true) // goblin
+  })
+
+  it('returns true for tiles covered by multi-tile furniture', () => {
+    let quest = createQuest()
+    quest = addElement(quest, createElement('furniture', 'table', 3, 3, { width: 3, height: 2 }))
+    // table occupies (3,3) (4,3) (5,3) (3,4) (4,4) (5,4)
+    expect(isOccupiedTile(quest.elements, 3, 3)).toBe(true)
+    expect(isOccupiedTile(quest.elements, 5, 4)).toBe(true)
+    expect(isOccupiedTile(quest.elements, 6, 3)).toBe(false) // outside
+  })
+
+  it('returns false for empty tiles', () => {
+    const quest = sampleQuest()
+    expect(isOccupiedTile(quest.elements, 0, 0)).toBe(false)
+  })
+})
+
+// ─── isTileBlocked ───────────────────────────────────────────────────
+
+describe('isTileBlocked', () => {
+  it('returns true for disabled tiles', () => {
+    const quest = questWithDisabledTiles()
+    expect(isTileBlocked(quest, 10, 10)).toBe(true)
+  })
+
+  it('returns true for occupied tiles', () => {
+    const quest = sampleQuest()
+    expect(isTileBlocked(quest, 2, 2)).toBe(true) // goblin
+  })
+
+  it('returns false for free tiles', () => {
+    const quest = sampleQuest()
+    expect(isTileBlocked(quest, 0, 0)).toBe(false)
+  })
+})
+
+// ─── createDefaultSelection ──────────────────────────────────────────
+
+describe('createDefaultSelection', () => {
+  it('creates all-true selection', () => {
+    const suggestion = emptySuggestion({
+      upgrades: [{ id: 'a', from: 'goblin', to: 'orc', reason: '' }],
+      add_monsters: [
+        { subtype: 'fimir', x: 1, y: 1, reason: '' },
+        { subtype: 'orc', x: 2, y: 2, reason: '' },
+      ],
+    })
+    const sel = createDefaultSelection(suggestion)
+    expect(sel.upgrades).toEqual([true])
+    expect(sel.add_monsters).toEqual([true, true])
+    expect(sel.repositions).toEqual([])
+    expect(sel.add_traps).toEqual([])
+    expect(sel.remove).toEqual([])
+  })
+})
+
+// ─── applyRemix ──────────────────────────────────────────────────────
+
 describe('applyRemix', () => {
   it('renames the quest', () => {
     const quest = sampleQuest()
-    const result = applyRemix(quest, {
-      name: 'Original (Hard)',
-      description: '',
-      upgrades: [],
-      repositions: [],
-      add_monsters: [],
-      add_traps: [],
-      remove: [],
-    })
+    const suggestion = emptySuggestion({ name: 'Original (Hard)' })
+    const result = applyRemix(quest, suggestion, allSelected(suggestion))
     expect(result.name).toBe('Original (Hard)')
   })
 
   it('upgrades monsters with correct IDs', () => {
     const quest = sampleQuest()
     const goblin = quest.elements.find((e) => e.subtype === 'goblin')!
-    const result = applyRemix(quest, {
-      name: 'Test',
-      description: '',
+    const suggestion = emptySuggestion({
       upgrades: [{ id: goblin.id, from: 'goblin', to: 'orc', reason: '' }],
-      repositions: [],
-      add_monsters: [],
-      add_traps: [],
-      remove: [],
     })
-    const upgraded = result.elements.find((e) => e.id === goblin.id)
-    expect(upgraded!.subtype).toBe('orc')
+    const result = applyRemix(quest, suggestion, allSelected(suggestion))
+    expect(result.elements.find((e) => e.id === goblin.id)!.subtype).toBe('orc')
   })
 
   it('upgrades monsters with wrong IDs using fallback', () => {
     const quest = sampleQuest()
-    const result = applyRemix(quest, {
-      name: 'Test',
-      description: '',
+    const suggestion = emptySuggestion({
       upgrades: [{ id: 'wrong-id', from: 'goblin', to: 'orc', reason: '' }],
-      repositions: [],
-      add_monsters: [],
-      add_traps: [],
-      remove: [],
     })
-    const orc = result.elements.find((e) => e.subtype === 'orc')
-    expect(orc).toBeDefined()
-    expect(orc!.position).toEqual({ x: 2, y: 2 })
+    const result = applyRemix(quest, suggestion, allSelected(suggestion))
+    expect(result.elements.some((e) => e.subtype === 'orc')).toBe(true)
+  })
+
+  it('normalizes monster subtypes on upgrade', () => {
+    const quest = sampleQuest()
+    const goblin = quest.elements.find((e) => e.subtype === 'goblin')!
+    const suggestion = emptySuggestion({
+      upgrades: [{ id: goblin.id, from: 'goblin', to: 'chaos_warrior', reason: '' }],
+    })
+    const result = applyRemix(quest, suggestion, allSelected(suggestion))
+    expect(result.elements.find((e) => e.id === goblin.id)!.subtype).toBe('chaos')
+  })
+
+  it('skips upgrade with invalid subtype', () => {
+    const quest = sampleQuest()
+    const goblin = quest.elements.find((e) => e.subtype === 'goblin')!
+    const suggestion = emptySuggestion({
+      upgrades: [{ id: goblin.id, from: 'goblin', to: 'dragon', reason: '' }],
+    })
+    const result = applyRemix(quest, suggestion, allSelected(suggestion))
+    expect(result.elements.find((e) => e.id === goblin.id)!.subtype).toBe('goblin')
   })
 
   it('repositions elements', () => {
     const quest = sampleQuest()
     const skeleton = quest.elements.find((e) => e.subtype === 'skeleton')!
-    const result = applyRemix(quest, {
-      name: 'Test',
-      description: '',
-      upgrades: [],
+    const suggestion = emptySuggestion({
       repositions: [{ id: skeleton.id, from: { x: 8, y: 7 }, to: { x: 10, y: 5 }, reason: '' }],
-      add_monsters: [],
-      add_traps: [],
-      remove: [],
     })
-    const moved = result.elements.find((e) => e.id === skeleton.id)
-    expect(moved!.position).toEqual({ x: 10, y: 5 })
+    const result = applyRemix(quest, suggestion, allSelected(suggestion))
+    expect(result.elements.find((e) => e.id === skeleton.id)!.position).toEqual({ x: 10, y: 5 })
   })
 
-  it('repositions with fallback when ID is wrong', () => {
-    const quest = sampleQuest()
-    const result = applyRemix(quest, {
-      name: 'Test',
-      description: '',
-      upgrades: [],
-      repositions: [{ id: 'bad-id', from: { x: 8, y: 7 }, to: { x: 10, y: 5 }, reason: '' }],
-      add_monsters: [],
-      add_traps: [],
-      remove: [],
+  it('blocks reposition to disabled tile', () => {
+    const quest = questWithDisabledTiles()
+    const skeleton = quest.elements.find((e) => e.subtype === 'skeleton')!
+    const suggestion = emptySuggestion({
+      repositions: [{ id: skeleton.id, from: { x: 8, y: 7 }, to: { x: 10, y: 10 }, reason: '' }],
     })
-    const skeleton = result.elements.find((e) => e.subtype === 'skeleton')
-    expect(skeleton!.position).toEqual({ x: 10, y: 5 })
+    const result = applyRemix(quest, suggestion, allSelected(suggestion))
+    expect(result.elements.find((e) => e.id === skeleton.id)!.position).toEqual({ x: 8, y: 7 })
   })
 
-  it('adds new monsters', () => {
+  it('adds new monsters with valid subtypes', () => {
     const quest = sampleQuest()
-    const before = quest.elements.length
-    const result = applyRemix(quest, {
-      name: 'Test',
-      description: '',
-      upgrades: [],
-      repositions: [],
-      add_monsters: [
-        { subtype: 'fimir', x: 12, y: 9, reason: '' },
-        { subtype: 'orc', x: 6, y: 3, reason: '' },
-      ],
-      add_traps: [],
-      remove: [],
+    const suggestion = emptySuggestion({
+      add_monsters: [{ subtype: 'fimir', x: 12, y: 9, reason: '' }],
     })
-    expect(result.elements.length).toBe(before + 2)
+    const result = applyRemix(quest, suggestion, allSelected(suggestion))
     expect(result.elements.some((e) => e.subtype === 'fimir')).toBe(true)
   })
 
-  it('adds new traps as hidden', () => {
+  it('normalizes monster subtypes on add', () => {
     const quest = sampleQuest()
-    const result = applyRemix(quest, {
-      name: 'Test',
-      description: '',
-      upgrades: [],
-      repositions: [],
-      add_monsters: [],
-      add_traps: [{ subtype: 'pittrap', x: 6, y: 4, reason: '' }],
-      remove: [],
+    const suggestion = emptySuggestion({
+      add_monsters: [{ subtype: 'chaos_warrior', x: 12, y: 9, reason: '' }],
     })
+    const result = applyRemix(quest, suggestion, allSelected(suggestion))
+    expect(result.elements.some((e) => e.subtype === 'chaos')).toBe(true)
+    expect(result.elements.some((e) => e.subtype === 'chaos_warrior')).toBe(false)
+  })
+
+  it('skips add_monster with invalid subtype', () => {
+    const quest = sampleQuest()
+    const before = quest.elements.length
+    const suggestion = emptySuggestion({
+      add_monsters: [{ subtype: 'dragon', x: 12, y: 9, reason: '' }],
+    })
+    const result = applyRemix(quest, suggestion, allSelected(suggestion))
+    expect(result.elements.length).toBe(before)
+  })
+
+  it('blocks add_monster on disabled tile', () => {
+    const quest = questWithDisabledTiles()
+    const before = quest.elements.length
+    const suggestion = emptySuggestion({
+      add_monsters: [{ subtype: 'orc', x: 10, y: 10, reason: '' }],
+    })
+    const result = applyRemix(quest, suggestion, allSelected(suggestion))
+    expect(result.elements.length).toBe(before)
+  })
+
+  it('blocks add_monster on tile occupied by furniture', () => {
+    let quest = createQuest()
+    quest = addElement(quest, createElement('furniture', 'table', 3, 3, { width: 3, height: 2 }))
+    const before = quest.elements.length
+    const suggestion = emptySuggestion({
+      add_monsters: [{ subtype: 'orc', x: 4, y: 3, reason: '' }], // inside table
+    })
+    const result = applyRemix(quest, suggestion, allSelected(suggestion))
+    expect(result.elements.length).toBe(before)
+  })
+
+  it('blocks add_monster on tile occupied by another monster', () => {
+    const quest = sampleQuest()
+    const before = quest.elements.length
+    const suggestion = emptySuggestion({
+      add_monsters: [{ subtype: 'orc', x: 2, y: 2, reason: '' }], // goblin is here
+    })
+    const result = applyRemix(quest, suggestion, allSelected(suggestion))
+    expect(result.elements.length).toBe(before)
+  })
+
+  it('adds traps as hidden', () => {
+    const quest = sampleQuest()
+    const suggestion = emptySuggestion({
+      add_traps: [{ subtype: 'pittrap', x: 6, y: 4, reason: '' }],
+    })
+    const result = applyRemix(quest, suggestion, allSelected(suggestion))
     const trap = result.elements.find((e) => e.subtype === 'pittrap')
     expect(trap).toBeDefined()
     expect(trap!.hidden).toBe(true)
   })
 
-  it('removes elements before repositioning', () => {
+  it('normalizes trap subtypes on add', () => {
+    const quest = sampleQuest()
+    const suggestion = emptySuggestion({
+      add_traps: [{ subtype: 'falling_block', x: 6, y: 4, reason: '' }],
+    })
+    const result = applyRemix(quest, suggestion, allSelected(suggestion))
+    expect(result.elements.some((e) => e.subtype === 'fallingrock')).toBe(true)
+  })
+
+  it('blocks add_trap on disabled tile', () => {
+    const quest = questWithDisabledTiles()
+    const before = quest.elements.length
+    const suggestion = emptySuggestion({
+      add_traps: [{ subtype: 'pittrap', x: 10, y: 10, reason: '' }],
+    })
+    const result = applyRemix(quest, suggestion, allSelected(suggestion))
+    expect(result.elements.length).toBe(before)
+  })
+
+  it('removes elements', () => {
     const quest = sampleQuest()
     const chest = quest.elements.find((e) => e.subtype === 'chest')!
-    const result = applyRemix(quest, {
-      name: 'Test',
-      description: '',
-      upgrades: [],
-      repositions: [],
-      add_monsters: [],
-      add_traps: [],
+    const suggestion = emptySuggestion({
       remove: [{ id: chest.id, reason: '' }],
     })
+    const result = applyRemix(quest, suggestion, allSelected(suggestion))
     expect(result.elements.find((e) => e.id === chest.id)).toBeUndefined()
-    expect(result.elements.length).toBe(quest.elements.length - 1)
   })
 
   it('skips operations that dont match any element', () => {
     const quest = sampleQuest()
-    const result = applyRemix(quest, {
-      name: 'Test',
-      description: '',
+    const suggestion = emptySuggestion({
       upgrades: [{ id: 'nonexistent', from: 'gargoyle', to: 'chaos', reason: '' }],
       repositions: [{ id: 'nonexistent', from: { x: 99, y: 99 }, to: { x: 1, y: 1 }, reason: '' }],
-      add_monsters: [],
-      add_traps: [],
       remove: [{ id: 'nonexistent', reason: '' }],
     })
-    // Quest should be unchanged except for the name
+    const result = applyRemix(quest, suggestion, allSelected(suggestion))
     expect(result.elements.length).toBe(quest.elements.length)
-    expect(result.elements.map((e) => e.subtype).sort()).toEqual(
-      quest.elements.map((e) => e.subtype).sort(),
-    )
   })
 
   it('applies multiple operations in correct order', () => {
@@ -288,15 +402,15 @@ describe('applyRemix', () => {
     const skeleton = quest.elements.find((e) => e.subtype === 'skeleton')!
     const chest = quest.elements.find((e) => e.subtype === 'chest')!
 
-    const result = applyRemix(quest, {
+    const suggestion = emptySuggestion({
       name: 'Full Remix',
-      description: '',
       remove: [{ id: chest.id, reason: '' }],
       upgrades: [{ id: goblin.id, from: 'goblin', to: 'orc', reason: '' }],
       repositions: [{ id: skeleton.id, from: { x: 8, y: 7 }, to: { x: 5, y: 3 }, reason: '' }],
       add_monsters: [{ subtype: 'chaos', x: 12, y: 9, reason: '' }],
       add_traps: [{ subtype: 'speartrap', x: 6, y: 4, reason: '' }],
     })
+    const result = applyRemix(quest, suggestion, allSelected(suggestion))
 
     expect(result.name).toBe('Full Remix')
     expect(result.elements.find((e) => e.id === chest.id)).toBeUndefined()
@@ -304,5 +418,79 @@ describe('applyRemix', () => {
     expect(result.elements.find((e) => e.id === skeleton.id)!.position).toEqual({ x: 5, y: 3 })
     expect(result.elements.some((e) => e.subtype === 'chaos')).toBe(true)
     expect(result.elements.some((e) => e.subtype === 'speartrap')).toBe(true)
+  })
+})
+
+// ─── Selective Apply ─────────────────────────────────────────────────
+
+describe('selective apply', () => {
+  it('skips unchecked upgrades', () => {
+    const quest = sampleQuest()
+    const goblin = quest.elements.find((e) => e.subtype === 'goblin')!
+    const suggestion = emptySuggestion({
+      upgrades: [{ id: goblin.id, from: 'goblin', to: 'orc', reason: '' }],
+    })
+    const sel = createDefaultSelection(suggestion)
+    sel.upgrades[0] = false
+    const result = applyRemix(quest, suggestion, sel)
+    expect(result.elements.find((e) => e.id === goblin.id)!.subtype).toBe('goblin')
+  })
+
+  it('skips unchecked add_monsters', () => {
+    const quest = sampleQuest()
+    const suggestion = emptySuggestion({
+      add_monsters: [
+        { subtype: 'fimir', x: 12, y: 9, reason: '' },
+        { subtype: 'orc', x: 6, y: 3, reason: '' },
+      ],
+    })
+    const sel = createDefaultSelection(suggestion)
+    sel.add_monsters[0] = false // skip fimir
+    const result = applyRemix(quest, suggestion, sel)
+    expect(result.elements.some((e) => e.subtype === 'fimir')).toBe(false)
+    expect(result.elements.some((e) => e.subtype === 'orc' && e.position.x === 6)).toBe(true)
+  })
+
+  it('skips unchecked repositions', () => {
+    const quest = sampleQuest()
+    const skeleton = quest.elements.find((e) => e.subtype === 'skeleton')!
+    const suggestion = emptySuggestion({
+      repositions: [{ id: skeleton.id, from: { x: 8, y: 7 }, to: { x: 10, y: 5 }, reason: '' }],
+    })
+    const sel = createDefaultSelection(suggestion)
+    sel.repositions[0] = false
+    const result = applyRemix(quest, suggestion, sel)
+    expect(result.elements.find((e) => e.id === skeleton.id)!.position).toEqual({ x: 8, y: 7 })
+  })
+
+  it('skips unchecked removes', () => {
+    const quest = sampleQuest()
+    const chest = quest.elements.find((e) => e.subtype === 'chest')!
+    const suggestion = emptySuggestion({
+      remove: [{ id: chest.id, reason: '' }],
+    })
+    const sel = createDefaultSelection(suggestion)
+    sel.remove[0] = false
+    const result = applyRemix(quest, suggestion, sel)
+    expect(result.elements.find((e) => e.id === chest.id)).toBeDefined()
+  })
+
+  it('applies mix of checked and unchecked', () => {
+    const quest = sampleQuest()
+    const goblin = quest.elements.find((e) => e.subtype === 'goblin')!
+    const suggestion = emptySuggestion({
+      upgrades: [{ id: goblin.id, from: 'goblin', to: 'orc', reason: '' }],
+      add_monsters: [
+        { subtype: 'fimir', x: 12, y: 9, reason: '' },
+        { subtype: 'mummy', x: 6, y: 3, reason: '' },
+      ],
+    })
+    const sel = createDefaultSelection(suggestion)
+    sel.upgrades[0] = false     // skip upgrade
+    sel.add_monsters[1] = false // skip mummy
+    const result = applyRemix(quest, suggestion, sel)
+    expect(result.elements.find((e) => e.id === goblin.id)!.subtype).toBe('goblin') // not upgraded
+    expect(result.elements.some((e) => e.subtype === 'fimir')).toBe(true)  // added
+    expect(result.elements.some((e) => e.subtype === 'mummy')).toBe(false) // skipped
   })
 })

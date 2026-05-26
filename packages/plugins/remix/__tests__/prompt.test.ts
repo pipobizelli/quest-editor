@@ -74,4 +74,23 @@ describe('remix buildRemixPrompt', () => {
     expect(hard).toContain('Light room role shuffle')
     expect(legendary).toContain('Full remix')
   })
+
+  it('lists valid subtypes in rules', () => {
+    const prompt = buildRemixPrompt(sampleQuest(), 'hard', 'en')
+    expect(prompt).toContain('goblin, orc, fimir, skeleton, zombie, mummy, chaos, gargoyle')
+    expect(prompt).toContain('pittrap, fallingrock, speartrap')
+  })
+
+  it('forbids disabled tiles', () => {
+    const prompt = buildRemixPrompt(sampleQuest(), 'hard', 'en')
+    expect(prompt).toContain('NEVER place anything on disabled tiles')
+  })
+
+  it('includes disabled tiles section', () => {
+    let quest = sampleQuest()
+    quest = { ...quest, disabledTiles: [{ x: 3, y: 3 }] }
+    const prompt = buildRemixPrompt(quest, 'hard', 'en')
+    expect(prompt).toContain('<disabled_tiles>')
+    expect(prompt).toContain('(3,3)')
+  })
 })
