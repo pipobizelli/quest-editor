@@ -62,16 +62,20 @@ export function isRoomNarratable(quest: Quest, room: Room): boolean {
 }
 
 /**
- * Returns all elements whose position falls within a room's bounds.
+ * Returns all elements that overlap with a room's bounds.
+ * Considers element dimensions (width/height), not just origin position.
  */
 export function getElementsByRoom(quest: Quest, room: Room): QuestElement[] {
   return quest.elements.filter((el) => {
     const ex = el.position.x
     const ey = el.position.y
+    const ew = el.width ?? 1
+    const eh = el.height ?? 1
+    // AABB overlap: element rect [ex, ex+ew) x [ey, ey+eh) intersects room rect
     return (
-      ex >= room.x &&
+      ex + ew > room.x &&
       ex < room.x + room.width &&
-      ey >= room.y &&
+      ey + eh > room.y &&
       ey < room.y + room.height
     )
   })

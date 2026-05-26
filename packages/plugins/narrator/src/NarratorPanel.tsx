@@ -5,6 +5,16 @@ import type { PluginPanelProps } from '@quest-editor/editor'
 import type { NarratorConfig } from './types'
 import { buildPrompt } from './prompt'
 
+const TONE_PRESETS = [
+  { value: '', label: 'Default' },
+  { value: 'Dark and ominous, heavy atmosphere, dread', label: 'Dark Fantasy' },
+  { value: 'Gory and visceral, blood and horror, graphic descriptions', label: 'Gore' },
+  { value: 'Light-hearted and humorous, witty observations, comedic tone', label: 'Humorous' },
+  { value: 'Poetic and lyrical, elegant prose, metaphors', label: 'Poetic' },
+  { value: 'Tense and suspenseful, paranoia, danger around every corner', label: 'Suspense' },
+  { value: 'Simple and clear, suitable for children, no violence', label: 'Children-friendly' },
+]
+
 export function createNarratorPanel(config: NarratorConfig) {
   return function NarratorPanel({ quest, onUpdateQuest, llmProvider, lock, unlock }: PluginPanelProps) {
     const [loading, setLoading] = useState<string | null>(null)
@@ -114,13 +124,35 @@ export function createNarratorPanel(config: NarratorConfig) {
             </button>
           )}
         </div>
-        <div style={{ padding: '0 12px 6px' }}>
+        <div style={{ padding: '0 12px 6px', display: 'flex', gap: 4 }}>
+          <select
+            value={TONE_PRESETS.some((p) => p.value === tone) ? tone : '__custom'}
+            onChange={(e) => {
+              if (e.target.value !== '__custom') setTone(e.target.value)
+            }}
+            style={{
+              padding: '4px 4px',
+              background: '#353535',
+              border: '1px solid #555',
+              color: '#ccc',
+              fontSize: 10,
+              borderRadius: 3,
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >
+            {TONE_PRESETS.map((p) => (
+              <option key={p.value} value={p.value}>{p.label}</option>
+            ))}
+            <option value="__custom">Custom</option>
+          </select>
           <input
             value={tone}
             onChange={(e) => setTone(e.target.value)}
-            placeholder="Tone: dark, humorous, gore, poetic..."
+            placeholder="Custom tone..."
             style={{
-              width: '100%',
+              flex: 1,
+              minWidth: 0,
               padding: '4px 6px',
               background: '#353535',
               border: '1px solid #555',

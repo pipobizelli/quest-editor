@@ -8,6 +8,7 @@ import {
   isRoomNarratable,
   getGroupedRooms,
   isGroupNarratable,
+  getElementsByRoom,
   getElementsByRooms,
   type Quest,
   type Room,
@@ -269,5 +270,57 @@ describe('getElementsByRooms', () => {
     const elements = getElementsByRooms(quest, lRooms)
     const orcCount = elements.filter((e) => e.subtype === 'orc').length
     expect(orcCount).toBe(1)
+  })
+})
+
+// ─── getElementsByRoom (multi-tile) ──────────────────────────────────
+
+describe('getElementsByRoom multi-tile', () => {
+  it('detects element by origin inside room', () => {
+    let quest = createQuest()
+    const room = quest.layout.rooms[0] // room-1 at (1,1) 4x3
+    quest = addElement(quest, createElement('monster', 'goblin', 2, 2))
+    expect(getElementsByRoom(quest, room)).toHaveLength(1)
+  })
+
+  it('detects multi-tile element whose origin is inside room', () => {
+    let quest = createQuest()
+    const room = quest.layout.rooms[0] // room-1 at (1,1) 4x3
+    // Table 3x2 with origin at (1,1), extends to (3,2) — fully inside room
+    quest = addElement(quest, createElement('furniture', 'table', 1, 1, { width: 3, height: 2 }))
+    expect(getElementsByRoom(quest, room)).toHaveLength(1)
+  })
+
+  it('detects multi-tile element that extends INTO the room from outside', () => {
+    let quest = createQuest()
+    const room = quest.layout.rooms[0] // room-1 at (1,1) 4x3
+    // Table 3x2 with origin at (0,1) — origin is outside room but extends into it
+    quest = addElement(quest, createElement('furniture', 'table', 0, 1, { width: 3, height: 2 }))
+    expect(getElementsByRoom(quest, room)).toHaveLength(1)
+  })
+
+  it('does NOT detect element fully outside room', () => {
+    let quest = createQuest()
+    const room = quest.layout.rooms[0] // room-1 at (1,1) 4x3
+    // Table at (10,10) — nowhere near the room
+    quest = addElement(quest, createElement('furniture', 'table', 10, 10, { width: 3, height: 2 }))
+    expect(getElementsByRoom(quest, room)).toHaveLength(0)
+  })
+
+  it('detects element that partially overlaps room edge', () => {
+    let quest = createQuest()
+    const room = quest.layout.rooms[0] // room-1 at (1,1) 4x3 → covers x:[1,4] y:[1,3]
+    // Bookcase 3x1 at origin (3,0) extends to (5,0) — y=0 is above room (y starts at 1)
+    // This should NOT overlap since it's above
+    quest = addElement(quest, createElement('furniture', 'bookcase', 3, 0, { width: 3, height: 1 }))
+    expect(getElementsByRoom(quest, room)).toHaveLength(0)
+  })
+
+  it('detects element touching room bottom edge from above', () => {
+    let quest = createQuest()
+    const room = quest.layout.rooms[0] // room-1 at (1,1) 4x3 → y:[1,3]
+    // Rack 1x2 at (2,2) extends to (2,3) — fully inside room
+    quest = addElement(quest, createElement('furniture', 'rack', 2, 2, { width: 1, height: 2 }))
+    expect(getElementsByRoom(quest, room)).toHaveLength(1)
   })
 })
