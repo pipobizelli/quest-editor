@@ -29,6 +29,8 @@ export interface QuestEditorHandle {
   lock: (reason?: string) => void
   unlock: () => void
   isLocked: () => boolean
+  undo: () => void
+  redo: () => void
 }
 
 const PANEL_WIDTH = 220
@@ -78,6 +80,8 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
     lock: (reason?: string) => store.getState().lock(reason),
     unlock: () => store.getState().unlock(),
     isLocked: () => store.getState().locked,
+    undo: () => store.getState().undo(),
+    redo: () => store.getState().redo(),
   }), [store])
 
   const stageRef = useRef<Konva.Stage>(null)
@@ -154,6 +158,18 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Undo: Cmd+Z / Ctrl+Z
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        store.getState().undo()
+        return
+      }
+      // Redo: Cmd+Shift+Z / Ctrl+Shift+Z or Cmd+Y / Ctrl+Y
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'Z' || e.key === 'y')) {
+        e.preventDefault()
+        store.getState().redo()
+        return
+      }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         const state = store.getState()
         if (state.selectedElementId || state.selectedElementIds.length > 0) {

@@ -19,6 +19,8 @@ function shouldSwapDimensions(rotation: number): boolean {
   return r === 90 || r === 270
 }
 
+const MAX_HISTORY = 50
+
 export interface EditorState {
   quest: Quest
   selectedElementId: string | null
@@ -29,6 +31,12 @@ export interface EditorState {
   dragRect: { x1: number; y1: number; x2: number; y2: number } | null
   locked: boolean
   lockReason: string | null
+
+  // History
+  _history: Quest[]
+  _future: Quest[]
+  canUndo: boolean
+  canRedo: boolean
 
   setQuest: (quest: Quest) => void
   addElement: (element: QuestElement) => void
@@ -48,6 +56,20 @@ export interface EditorState {
   setDragRect: (rect: EditorState['dragRect']) => void
   lock: (reason?: string) => void
   unlock: () => void
+  undo: () => void
+  redo: () => void
+}
+
+/** Push current quest to history and return the new quest + history state */
+function pushHistory(s: EditorState, newQuest: Quest): Partial<EditorState> {
+  const history = [...s._history, s.quest].slice(-MAX_HISTORY)
+  return {
+    quest: newQuest,
+    _history: history,
+    _future: [],
+    canUndo: true,
+    canRedo: false,
+  }
 }
 
 export const createEditorStore = (initialQuest?: Partial<Quest>) =>
@@ -61,18 +83,26 @@ export const createEditorStore = (initialQuest?: Partial<Quest>) =>
     dragRect: null,
     locked: false,
     lockReason: null,
+    _history: [],
+    _future: [],
+    canUndo: false,
+    canRedo: false,
 
-    setQuest: (quest) => set({ quest, selectedElementId: null, selectedElementIds: [] }),
+    setQuest: (quest) => set((s) => ({
+      ...pushHistory(s, quest),
+      selectedElementId: null,
+      selectedElementIds: [],
+    })),
     addElement: (element) =>
       set((s) => {
         if (s.locked) return s
-        return { quest: addElement(s.quest, element) }
+        return pushHistory(s, addElement(s.quest, element))
       }),
     removeElement: (id) =>
       set((s) => {
         if (s.locked) return s
         return {
-          quest: removeElement(s.quest, id),
+          ...pushHistory(s, removeElement(s.quest, id)),
           selectedElementId: s.selectedElementId === id ? null : s.selectedElementId,
           selectedElementIds: s.selectedElementIds.filter((i) => i !== id),
         }
@@ -84,20 +114,25 @@ export const createEditorStore = (initialQuest?: Partial<Quest>) =>
         const ids = s.selectedElementIds.length > 0
           ? s.selectedElementIds
           : s.selectedElementId ? [s.selectedElementId] : []
+        if (ids.length === 0) return s
         for (const id of ids) {
           quest = removeElement(quest, id)
         }
-        return { quest, selectedElementId: null, selectedElementIds: [] }
+        return {
+          ...pushHistory(s, quest),
+          selectedElementId: null,
+          selectedElementIds: [],
+        }
       }),
     updateElement: (id, updates) =>
       set((s) => {
         if (s.locked) return s
-        return { quest: updateElement(s.quest, id, updates) }
+        return pushHistory(s, updateElement(s.quest, id, updates))
       }),
     moveElement: (id, x, y) =>
       set((s) => {
         if (s.locked) return s
-        return { quest: moveElement(s.quest, id, x, y) }
+        return pushHistory(s, moveElement(s.quest, id, x, y))
       }),
     selectElement: (id) =>
       set((s) => {
@@ -151,18 +186,15 @@ export const createEditorStore = (initialQuest?: Partial<Quest>) =>
         // Doors (non-secret) use orientation instead of rotation
         if (el.type === 'door' && el.subtype !== 'secret') {
           const newOrientation = el.orientation === 'vertical' ? 'horizontal' : 'vertical'
-          return {
-            quest: updateElement(s.quest, s.selectedElementId, {
-              orientation: newOrientation,
-            }),
-          }
+          return pushHistory(s, updateElement(s.quest, s.selectedElementId, {
+            orientation: newOrientation,
+          }))
         }
 
         const currentRotation = el.rotation ?? 0
         const newRotation = normalizeRotation(currentRotation + 90)
         const w = el.width ?? 1
         const h = el.height ?? 1
-        // Swap dimensions when going between 0/180 and 90/270
         const wasSwapped = shouldSwapDimensions(currentRotation)
         const willSwap = shouldSwapDimensions(newRotation)
         const updates: Partial<QuestElement> = { rotation: newRotation }
@@ -170,19 +202,17 @@ export const createEditorStore = (initialQuest?: Partial<Quest>) =>
           updates.width = h
           updates.height = w
         }
-        return {
-          quest: updateElement(s.quest, s.selectedElementId, updates),
-        }
+        return pushHistory(s, updateElement(s.quest, s.selectedElementId, updates))
       }),
     toggleDisabledTile: (x, y) =>
       set((s) => {
         if (s.locked) return s
-        return { quest: toggleTile(s.quest, x, y) }
+        return pushHistory(s, toggleTile(s.quest, x, y))
       }),
     toggleDisabledRect: (x1, y1, x2, y2) =>
       set((s) => {
         if (s.locked) return s
-        return { quest: toggleTilesRect(s.quest, x1, y1, x2, y2) }
+        return pushHistory(s, toggleTilesRect(s.quest, x1, y1, x2, y2))
       }),
     setDragRect: (rect) =>
       set((s) => {
@@ -198,4 +228,34 @@ export const createEditorStore = (initialQuest?: Partial<Quest>) =>
       tool: 'select',
     }),
     unlock: () => set({ locked: false, lockReason: null }),
+    undo: () =>
+      set((s) => {
+        if (s.locked || s._history.length === 0) return s
+        const history = [...s._history]
+        const previous = history.pop()!
+        return {
+          quest: previous,
+          _history: history,
+          _future: [s.quest, ...s._future].slice(0, MAX_HISTORY),
+          canUndo: history.length > 0,
+          canRedo: true,
+          selectedElementId: null,
+          selectedElementIds: [],
+        }
+      }),
+    redo: () =>
+      set((s) => {
+        if (s.locked || s._future.length === 0) return s
+        const future = [...s._future]
+        const next = future.shift()!
+        return {
+          quest: next,
+          _history: [...s._history, s.quest].slice(-MAX_HISTORY),
+          _future: future,
+          canUndo: true,
+          canRedo: future.length > 0,
+          selectedElementId: null,
+          selectedElementIds: [],
+        }
+      }),
   }))
