@@ -46,4 +46,5 @@ export {
   RULES_ARMORY,
   RULES_MONSTER_BEHAVIOR,
   CREATURE_LORE,
+  RULES_REMIX_GUIDELINES,
 } from './game-rules'

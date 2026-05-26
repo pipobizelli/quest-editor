@@ -153,3 +153,36 @@ ZOMBIE: Shambling corpses raised by necromancy. Their rotting flesh and hollow e
 MUMMY: Ancient warriors wrapped in decaying bandages, preserved by dark rituals. They move with ponderous inevitability, their desiccated hands gripping ceremonial weapons.
 CHAOS WARRIOR: Elite soldiers of Zargon clad in ornate crimson armor etched with chaos runes. They are skilled, disciplined, and utterly devoted to the forces of darkness.
 GARGOYLE: Massive stone-like creatures with bat wings and cruel claws. Once mistaken for mere statuary, they come alive with terrifying speed. Their stony hide deflects most blows.`
+
+// ─── Remix Guidelines ────────────────────────────────────────────────
+
+export const RULES_REMIX_GUIDELINES = `\
+WHAT MUST NOT CHANGE:
+- Room structure (walls, corridors, room sizes/positions)
+- Door positions (part of the board architecture)
+- Quest objective (rescue, retrieve, destroy — stays the same)
+- Stairway position (entry/exit point)
+- Quest narrative/lore
+
+WHAT CAN CHANGE:
+1. MONSTERS: relocate between rooms, swap types within tier, change count per room (keep total ±2), redistribute corridor guards. Boss stays in a narratively significant room.
+2. TRAPS: move to different corridors/rooms, change types, add where there were none, remove/relocate existing (keep total ±1). Place where heroes are likely to walk, not in dead ends.
+3. FURNITURE: move within a room, swap between rooms, change which piece holds treasure (keep count ±1 per room, don't leave rooms empty, thematic pieces stay in thematic rooms).
+4. TREASURE: move quest-specific treasure to different room/furniture, add decoy rooms. Must remain reachable, not behind mandatory death traps.
+5. SECRET DOORS: reposition to different walls, add new ones, remove existing (keep at least one viable path to objective).
+6. NPCs: relocate to different rooms (must make narrative sense — prisoner in cell-like room).
+
+REMIX STRATEGIES:
+A. Room Role Shuffle — reassign room purposes (boss room, treasure room, ambush room move to different rooms)
+B. Monster Redistribution — keep rooms but change positions/types within them
+C. Trap Gauntlet Shift — safe corridors become trapped, trapped become safe
+D. Full Remix — combine A+B+C for maximum unpredictability (3+ replays)
+
+QUALITY CHECKLIST:
+- Quest is still completable (viable path to objective)
+- Narrative still makes sense
+- No room is empty AND no room is instant death
+- Early rooms easier than late rooms (difficulty curve)
+- Boss encounter feels climactic (not the first room)
+- Traps in places heroes will actually walk
+- Different enough that a veteran player will be surprised`

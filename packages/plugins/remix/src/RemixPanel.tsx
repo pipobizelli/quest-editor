@@ -3,6 +3,7 @@ import type { PluginPanelProps } from '@quest-editor/editor'
 import {
   createElement,
   addElement,
+  removeElement,
   updateElement,
   moveElement,
   getCatalogEntry,
@@ -37,6 +38,11 @@ interface AddTrapEntry {
   reason: string
 }
 
+interface RemoveEntry {
+  id: string
+  reason: string
+}
+
 interface RemixSuggestion {
   name: string
   description: string
@@ -44,6 +50,7 @@ interface RemixSuggestion {
   repositions: RepositionEntry[]
   add_monsters: AddMonsterEntry[]
   add_traps: AddTrapEntry[]
+  remove: RemoveEntry[]
 }
 
 interface RemixConfig {
@@ -81,6 +88,7 @@ export function createRemixPanel(config: RemixConfig) {
         const jsonStr = raw.replace(/```json?\n?/g, '').replace(/```/g, '').trim()
         const data = JSON.parse(jsonStr) as RemixSuggestion
 
+        data.remove = data.remove ?? []
         if (!data.upgrades || !data.repositions || !data.add_monsters || !data.add_traps) {
           throw new Error('Invalid response format')
         }
@@ -95,6 +103,23 @@ export function createRemixPanel(config: RemixConfig) {
       }
     }, [quest, difficulty, llmProvider, lock, unlock])
 
+    // Resolve element by ID, falling back to matching by subtype + position
+    const resolveElement = useCallback((
+      elements: typeof quest.elements,
+      id: string,
+      hint?: { subtype?: string; x?: number; y?: number },
+    ) => {
+      const byId = elements.find((e) => e.id === id)
+      if (byId) return byId
+      // Fallback: match by subtype + position
+      if (hint?.subtype != null && hint.x != null && hint.y != null) {
+        return elements.find(
+          (e) => e.subtype === hint.subtype && e.position.x === hint.x && e.position.y === hint.y,
+        )
+      }
+      return undefined
+    }, [])
+
     const apply = useCallback(() => {
       if (!suggestion) return
       let updated = quest
@@ -102,19 +127,32 @@ export function createRemixPanel(config: RemixConfig) {
       // Apply name
       updated = { ...updated, name: suggestion.name }
 
+      // Remove elements first (before repositions to free up tiles)
+      for (const r of suggestion.remove) {
+        const el = resolveElement(updated.elements, r.id)
+        if (el) {
+          updated = removeElement(updated, el.id)
+        }
+      }
+
       // Apply upgrades (swap monster subtypes)
       for (const u of suggestion.upgrades) {
-        const el = updated.elements.find((e) => e.id === u.id)
+        const el = resolveElement(updated.elements, u.id, {
+          subtype: u.from,
+        })
         if (el && el.type === 'monster') {
-          updated = updateElement(updated, u.id, { subtype: u.to })
+          updated = updateElement(updated, el.id, { subtype: u.to })
         }
       }
 
       // Apply repositions
       for (const r of suggestion.repositions) {
-        const el = updated.elements.find((e) => e.id === r.id)
+        const el = resolveElement(updated.elements, r.id, {
+          x: r.from.x,
+          y: r.from.y,
+        })
         if (el) {
-          updated = moveElement(updated, r.id, r.to.x, r.to.y)
+          updated = moveElement(updated, el.id, r.to.x, r.to.y)
         }
       }
 
@@ -132,14 +170,14 @@ export function createRemixPanel(config: RemixConfig) {
 
       onUpdateQuest(updated)
       setSuggestion(null)
-    }, [quest, suggestion, onUpdateQuest])
+    }, [quest, suggestion, onUpdateQuest, resolveElement])
 
     const dismiss = useCallback(() => {
       setSuggestion(null)
     }, [])
 
     const totalChanges = suggestion
-      ? suggestion.upgrades.length + suggestion.repositions.length + suggestion.add_monsters.length + suggestion.add_traps.length
+      ? suggestion.upgrades.length + suggestion.repositions.length + suggestion.add_monsters.length + suggestion.add_traps.length + suggestion.remove.length
       : 0
 
     if (!llmProvider) {
@@ -258,6 +296,21 @@ export function createRemixPanel(config: RemixConfig) {
                     <div style={{ color: '#bbb' }}>{t.reason}</div>
                   </ChangeItem>
                 ))}
+              </ChangeSection>
+            )}
+
+            {suggestion.remove.length > 0 && (
+              <ChangeSection title="Removed" color="#95a5a6">
+                {suggestion.remove.map((r, i) => {
+                  const el = quest.elements.find((e) => e.id === r.id)
+                  const label = el ? (getCatalogEntry(el.type, el.subtype)?.label ?? el.subtype) : r.id
+                  return (
+                    <ChangeItem key={i} color="#95a5a6">
+                      <span style={{ fontWeight: 600 }}>{label}</span>
+                      <div style={{ color: '#bbb' }}>{r.reason}</div>
+                    </ChangeItem>
+                  )
+                })}
               </ChangeSection>
             )}
 
