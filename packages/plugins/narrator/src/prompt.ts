@@ -64,6 +64,7 @@ export function buildPrompt(
   quest: Quest,
   roomOrGroup: Room | RoomGroup,
   language: string = 'en',
+  tone?: string,
 ): string {
   const rooms = 'rooms' in roomOrGroup ? roomOrGroup.rooms : [roomOrGroup]
   const elements = getElementsByRooms(quest, rooms)
@@ -97,7 +98,7 @@ ${RULES_TRAPS}
   <rule>Be atmospheric and immersive, use sensory details (sight, sound, smell)</rule>
   <rule>Use the creature_lore to describe monsters with rich, thematic detail — not just their names</rule>
   <rule>Mention the creatures and notable furniture naturally, not as a list</rule>
-  <rule>Write in ${getLanguageInstruction(language)}</rule>
+  <rule>Write in ${getLanguageInstruction(language)}</rule>${tone ? `\n  <rule>Tone and style: ${tone}</rule>` : ''}
 </rules>
 
 <examples>

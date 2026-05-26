@@ -6,8 +6,9 @@ import type { NarratorConfig } from './types'
 import { buildPrompt } from './prompt'
 
 export function createNarratorPanel(config: NarratorConfig) {
-  return function NarratorPanel({ quest, onUpdateQuest, llmProvider }: PluginPanelProps) {
+  return function NarratorPanel({ quest, onUpdateQuest, llmProvider, lock, unlock }: PluginPanelProps) {
     const [loading, setLoading] = useState<string | null>(null)
+    const [tone, setTone] = useState(config.tone ?? '')
     const [narrations, setNarrations] = useState<Map<string, string>>(
       () => new Map(
         Object.entries((quest as any).narrations ?? {}),
@@ -25,7 +26,7 @@ export function createNarratorPanel(config: NarratorConfig) {
         if (!llmProvider) return
         setLoading(group.id)
         try {
-          const prompt = buildPrompt(quest, group, config.language)
+          const prompt = buildPrompt(quest, group, config.language, tone || undefined)
           const text = await llmProvider.generate(prompt)
           setNarrations((prev) => {
             const next = new Map(prev)
@@ -43,6 +44,38 @@ export function createNarratorPanel(config: NarratorConfig) {
       [quest, config, onUpdateQuest, llmProvider],
     )
 
+    const generateAll = useCallback(
+      async () => {
+        if (!llmProvider) return
+        const pending = groups.filter((g) => !narrations.has(g.id))
+        if (pending.length === 0) return
+        lock('Generating narrations...')
+        let updatedNarrations = { ...((quest as any).narrations ?? {}) }
+        try {
+          for (const group of pending) {
+            setLoading(group.id)
+            const prompt = buildPrompt(quest, group, config.language, tone || undefined)
+            const text = await llmProvider.generate(prompt)
+            setNarrations((prev) => {
+              const next = new Map(prev)
+              next.set(group.id, text)
+              return next
+            })
+            updatedNarrations[group.id] = text
+          }
+          onUpdateQuest({ ...quest, narrations: updatedNarrations } as any)
+        } catch (err) {
+          console.error('Narrator error:', err)
+        } finally {
+          setLoading(null)
+          unlock()
+        }
+      },
+      [quest, groups, narrations, config, onUpdateQuest, llmProvider, lock, unlock],
+    )
+
+    const pendingCount = groups.filter((g) => !narrations.has(g.id)).length
+
     if (!llmProvider) {
       return (
         <div style={{ borderTop: '1px solid #555', padding: '8px 12px', fontSize: 11, color: '#888' }}>
@@ -53,8 +86,43 @@ export function createNarratorPanel(config: NarratorConfig) {
 
     return (
       <div style={{ borderTop: '1px solid #555', padding: '8px 0' }}>
-        <div style={{ padding: '4px 12px 8px', fontSize: 12, fontWeight: 600, color: '#ccc' }}>
-          Narrator
+        <div style={{ padding: '4px 12px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#ccc' }}>Narrator</span>
+          {pendingCount > 0 && (
+            <button
+              onClick={generateAll}
+              disabled={loading !== null}
+              style={{
+                padding: '3px 8px',
+                background: 'transparent',
+                border: '1px solid #666',
+                color: '#bbb',
+                fontSize: 10,
+                cursor: loading ? 'wait' : 'pointer',
+                borderRadius: 3,
+                opacity: loading ? 0.5 : 1,
+              }}
+            >
+              {loading ? `${pendingCount - groups.filter((g) => !narrations.has(g.id)).length}/${pendingCount}` : `Gen All (${pendingCount})`}
+            </button>
+          )}
+        </div>
+        <div style={{ padding: '0 12px 6px' }}>
+          <input
+            value={tone}
+            onChange={(e) => setTone(e.target.value)}
+            placeholder="Tone: dark, humorous, gore, poetic..."
+            style={{
+              width: '100%',
+              padding: '4px 6px',
+              background: '#353535',
+              border: '1px solid #555',
+              color: '#ccc',
+              fontSize: 10,
+              borderRadius: 3,
+              boxSizing: 'border-box',
+            }}
+          />
         </div>
         {groups.map((group) => {
           const narration = narrations.get(group.id)
@@ -87,16 +155,16 @@ export function createNarratorPanel(config: NarratorConfig) {
                 </button>
                 <button
                   onClick={() => generateForGroup(group)}
-                  disabled={isLoading}
+                  disabled={loading !== null}
                   style={{
                     padding: '2px 6px',
                     background: 'transparent',
                     border: '1px solid #666',
                     color: '#bbb',
                     fontSize: 10,
-                    cursor: isLoading ? 'wait' : 'pointer',
+                    cursor: loading !== null ? 'wait' : 'pointer',
                     borderRadius: 3,
-                    opacity: isLoading ? 0.5 : 1,
+                    opacity: loading !== null ? 0.5 : 1,
                   }}
                 >
                   {isLoading ? '...' : narration ? '↻' : 'Gen'}

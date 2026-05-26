@@ -56,4 +56,26 @@ describe('narrator buildPrompt', () => {
     const prompt = buildPrompt(quest, room, 'en')
     expect(prompt).toContain('NEVER reveal hidden traps')
   })
+
+  it('includes tone when provided', () => {
+    const quest = questWithRoom()
+    const room = quest.layout.rooms[0]
+    const prompt = buildPrompt(quest, room, 'en', 'dark and gore')
+    expect(prompt).toContain('Tone and style: dark and gore')
+  })
+
+  it('omits tone rule when not provided', () => {
+    const quest = questWithRoom()
+    const room = quest.layout.rooms[0]
+    const prompt = buildPrompt(quest, room, 'en')
+    expect(prompt).not.toContain('Tone and style')
+  })
+
+  it('accepts a RoomGroup', () => {
+    const quest = questWithRoom()
+    const group = { id: 'test-group', label: 'Test', rooms: [quest.layout.rooms[0]] }
+    const prompt = buildPrompt(quest, group, 'en')
+    expect(prompt).toContain('Test Quest')
+    expect(prompt).toContain('Skeleton')
+  })
 })
