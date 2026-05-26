@@ -78,4 +78,33 @@ describe('narrator buildPrompt', () => {
     expect(prompt).toContain('Test Quest')
     expect(prompt).toContain('Skeleton')
   })
+
+  it('includes previous narrations when provided', () => {
+    const quest = questWithRoom()
+    const room = quest.layout.rooms[0]
+    const prev = {
+      'room-1': 'A dark chamber filled with dust.',
+      'room-2': 'The sound of dripping water echoes.',
+    }
+    const prompt = buildPrompt(quest, room, 'en', undefined, prev)
+    expect(prompt).toContain('<previous_narrations>')
+    expect(prompt).toContain('A dark chamber filled with dust.')
+    expect(prompt).toContain('The sound of dripping water echoes.')
+    expect(prompt).toContain('room="room-1"')
+    expect(prompt).toContain('room="room-2"')
+  })
+
+  it('omits previous narrations section when empty', () => {
+    const quest = questWithRoom()
+    const room = quest.layout.rooms[0]
+    const prompt = buildPrompt(quest, room, 'en', undefined, {})
+    expect(prompt).not.toContain('<previous_narrations>')
+  })
+
+  it('includes narrative arc rule', () => {
+    const quest = questWithRoom()
+    const room = quest.layout.rooms[0]
+    const prompt = buildPrompt(quest, room, 'en')
+    expect(prompt).toContain('narrative arc')
+  })
 })

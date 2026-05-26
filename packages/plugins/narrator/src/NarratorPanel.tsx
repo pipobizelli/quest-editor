@@ -43,7 +43,8 @@ export function createNarratorPanel(config: NarratorConfig) {
         if (!llmProvider) return
         setLoading(group.id)
         try {
-          const prompt = buildPrompt(quest, group, config.language, tone || undefined)
+          const prev = Object.fromEntries([...narrations].filter(([id]) => id !== group.id))
+          const prompt = buildPrompt(quest, group, config.language, tone || undefined, prev)
           const text = await llmProvider.generate(prompt)
           setNarrations((prev) => {
             const next = new Map(prev)
@@ -68,10 +69,12 @@ export function createNarratorPanel(config: NarratorConfig) {
         if (pending.length === 0) return
         lock('Generating narrations...')
         let updatedNarrations = { ...(quest.narrations ?? {}) }
+        // Seed with existing narrations so each room builds on all previous ones
+        const accumulated: Record<string, string> = { ...Object.fromEntries(narrations) }
         try {
           for (const group of pending) {
             setLoading(group.id)
-            const prompt = buildPrompt(quest, group, config.language, tone || undefined)
+            const prompt = buildPrompt(quest, group, config.language, tone || undefined, accumulated)
             const text = await llmProvider.generate(prompt)
             setNarrations((prev) => {
               const next = new Map(prev)
@@ -79,6 +82,7 @@ export function createNarratorPanel(config: NarratorConfig) {
               return next
             })
             updatedNarrations[group.id] = text
+            accumulated[group.id] = text
           }
           onUpdateQuest({ ...quest, narrations: updatedNarrations })
         } catch (err) {

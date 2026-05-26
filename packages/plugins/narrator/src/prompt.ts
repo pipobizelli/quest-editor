@@ -65,10 +65,16 @@ export function buildPrompt(
   roomOrGroup: Room | RoomGroup,
   language: string = 'en',
   tone?: string,
+  previousNarrations?: Record<string, string>,
 ): string {
   const rooms = 'rooms' in roomOrGroup ? roomOrGroup.rooms : [roomOrGroup]
   const elements = getElementsByRooms(quest, rooms)
   const elementDesc = describeElements(elements)
+
+  const prevEntries = Object.entries(previousNarrations ?? {})
+  const prevSection = prevEntries.length > 0
+    ? `\n<previous_narrations>\n${prevEntries.map(([id, text]) => `  <narration room="${id}">${text}</narration>`).join('\n')}\n</previous_narrations>\n`
+    : ''
 
   return `You are a narrator for a HeroQuest board game session.
 A hero just opened a door revealing a new room. Your job is to write a short, atmospheric narration for the Game Master to read aloud.
@@ -82,7 +88,7 @@ ${quest.notes ? `  <gm_notes>${quest.notes}</gm_notes>\n` : ''}\
 <room>
 ${elementDesc || '  <empty>true</empty>'}
 </room>
-
+${prevSection}
 <creature_lore>
 ${CREATURE_LORE}
 </creature_lore>
@@ -98,6 +104,7 @@ ${RULES_TRAPS}
   <rule>Be atmospheric and immersive, use sensory details (sight, sound, smell)</rule>
   <rule>Use the creature_lore to describe monsters with rich, thematic detail — not just their names</rule>
   <rule>Mention the creatures and notable furniture naturally, not as a list</rule>
+  <rule>If previous_narrations are provided, build on the narrative arc — avoid repeating the same descriptions, vary your vocabulary, and reference the growing sense of danger or discovery as heroes venture deeper</rule>
   <rule>Write in ${getLanguageInstruction(language)}</rule>${tone ? `\n  <rule>Tone and style: ${tone}</rule>` : ''}
 </rules>
 
