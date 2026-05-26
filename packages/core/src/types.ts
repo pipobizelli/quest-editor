@@ -68,6 +68,7 @@ export interface Quest {
   elements: QuestElement[]
   disabledTiles?: Position[]
   notes?: string
+  narrations?: Record<string, string>
 }
 
 export const DEFAULT_BOARD: BoardConfig = {

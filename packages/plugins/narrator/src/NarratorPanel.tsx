@@ -11,7 +11,7 @@ export function createNarratorPanel(config: NarratorConfig) {
     const [tone, setTone] = useState(config.tone ?? '')
     const [narrations, setNarrations] = useState<Map<string, string>>(
       () => new Map(
-        Object.entries((quest as any).narrations ?? {}),
+        Object.entries(quest.narrations ?? {}),
       ),
     )
     const [expandedGroup, setExpandedGroup] = useState<string | null>(null)
@@ -33,8 +33,8 @@ export function createNarratorPanel(config: NarratorConfig) {
             next.set(group.id, text)
             return next
           })
-          const questNarrations = { ...((quest as any).narrations ?? {}), [group.id]: text }
-          onUpdateQuest({ ...quest, narrations: questNarrations } as any)
+          const questNarrations = { ...(quest.narrations ?? {}), [group.id]: text }
+          onUpdateQuest({ ...quest, narrations: questNarrations })
         } catch (err) {
           console.error('Narrator error:', err)
         } finally {
@@ -50,7 +50,7 @@ export function createNarratorPanel(config: NarratorConfig) {
         const pending = groups.filter((g) => !narrations.has(g.id))
         if (pending.length === 0) return
         lock('Generating narrations...')
-        let updatedNarrations = { ...((quest as any).narrations ?? {}) }
+        let updatedNarrations = { ...(quest.narrations ?? {}) }
         try {
           for (const group of pending) {
             setLoading(group.id)
@@ -63,7 +63,7 @@ export function createNarratorPanel(config: NarratorConfig) {
             })
             updatedNarrations[group.id] = text
           }
-          onUpdateQuest({ ...quest, narrations: updatedNarrations } as any)
+          onUpdateQuest({ ...quest, narrations: updatedNarrations })
         } catch (err) {
           console.error('Narrator error:', err)
         } finally {

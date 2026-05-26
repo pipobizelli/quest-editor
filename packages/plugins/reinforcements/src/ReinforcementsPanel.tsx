@@ -20,7 +20,7 @@ interface ReinforcementsConfig {
 }
 
 export function createReinforcementsPanel(config: ReinforcementsConfig) {
-  return function ReinforcementsPanel({ quest, onUpdateQuest, llmProvider }: PluginPanelProps) {
+  return function ReinforcementsPanel({ quest, onUpdateQuest, llmProvider, lock, unlock }: PluginPanelProps) {
     const [loading, setLoading] = useState(false)
     const [suggestion, setSuggestion] = useState<ReinforcementSuggestion | null>(null)
     const [error, setError] = useState<string | null>(null)
@@ -29,6 +29,7 @@ export function createReinforcementsPanel(config: ReinforcementsConfig) {
       if (!llmProvider) return
       setLoading(true)
       setError(null)
+      lock('Generating reinforcements...')
       try {
         const prompt = buildReinforcementsPrompt(quest, config.language)
         const raw = await llmProvider.generate(prompt)
@@ -46,8 +47,9 @@ export function createReinforcementsPanel(config: ReinforcementsConfig) {
         setError('Failed to generate. Try again.')
       } finally {
         setLoading(false)
+        unlock()
       }
-    }, [quest, llmProvider])
+    }, [quest, llmProvider, lock, unlock])
 
     const apply = useCallback(() => {
       if (!suggestion) return
