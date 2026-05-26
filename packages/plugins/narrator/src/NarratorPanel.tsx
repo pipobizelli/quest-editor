@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import type { RoomGroup } from '@quest-editor/core'
 import { getGroupedRooms, isGroupNarratable } from '@quest-editor/core'
 import type { PluginPanelProps } from '@quest-editor/editor'
@@ -10,11 +10,18 @@ export function createNarratorPanel(config: NarratorConfig) {
     const [loading, setLoading] = useState<string | null>(null)
     const [tone, setTone] = useState(config.tone ?? '')
     const [narrations, setNarrations] = useState<Map<string, string>>(
-      () => new Map(
-        Object.entries(quest.narrations ?? {}),
-      ),
+      () => new Map(Object.entries(quest.narrations ?? {})),
     )
     const [expandedGroup, setExpandedGroup] = useState<string | null>(null)
+
+    // Sync local narrations when quest.narrations changes externally (e.g., quest loaded from file)
+    const lastQuestIdRef = useRef(quest.id)
+    useEffect(() => {
+      if (quest.id !== lastQuestIdRef.current) {
+        lastQuestIdRef.current = quest.id
+        setNarrations(new Map(Object.entries(quest.narrations ?? {})))
+      }
+    }, [quest.id, quest.narrations])
 
     const groups = useMemo(
       () => getGroupedRooms(quest).filter((g) => isGroupNarratable(quest, g)),
