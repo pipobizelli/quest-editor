@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback, useMemo, useImperativeHandle, forwardRef } from 'react'
-import { Stage, Layer } from 'react-konva'
+import { Stage, Layer, Rect as KonvaRect } from 'react-konva'
 import type { Quest, QuestElement, ElementType } from '@quest-editor/core'
-import { LAYER_ORDER, createElement } from '@quest-editor/core'
+import { LAYER_ORDER, createElement, getGroupedRooms, getGroupsForDoor, getCorridorTiles, isTileInRoom } from '@quest-editor/core'
 import type Konva from 'konva'
 import { Grid } from './Grid'
 import { QuestElementNode } from './QuestElementNode'
@@ -33,6 +33,7 @@ export interface QuestEditorHandle {
   isLocked: () => boolean
   undo: () => void
   redo: () => void
+  setMode: (mode: 'edit' | 'play') => void
 }
 
 const PANEL_WIDTH = 220
@@ -81,6 +82,12 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
   const lockReason = useStore(store, (s) => s.lockReason)
   const lock = useStore(store, (s) => s.lock)
   const unlock = useStore(store, (s) => s.unlock)
+  const mode = useStore(store, (s) => s.mode)
+  const revealedGroups = useStore(store, (s) => s.revealedGroups)
+  const revealedTiles = useStore(store, (s) => s.revealedTiles)
+  const setMode = useStore(store, (s) => s.setMode)
+  const revealRoom = useStore(store, (s) => s.revealRoom)
+  const revealCorridor = useStore(store, (s) => s.revealCorridor)
 
   useImperativeHandle(ref, () => ({
     lock: (reason?: string) => store.getState().lock(reason),
@@ -88,6 +95,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
     isLocked: () => store.getState().locked,
     undo: () => store.getState().undo(),
     redo: () => store.getState().redo(),
+    setMode: (m) => store.getState().setMode(m),
   }), [store])
 
   const stageRef = useRef<Konva.Stage>(null)
@@ -120,16 +128,80 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
     setStagePos(v.pos)
   }, [getCenteredView])
 
-  // Group elements by type for layered rendering
+  const roomGroups = useMemo(() => getGroupedRooms(quest), [quest])
+
+  // All tiles that should have fog (rooms + corridors, excluding disabled tiles)
+  const fogTiles = useMemo(() => {
+    if (mode !== 'play') return []
+    const disabled = new Set(
+      (quest.disabledTiles ?? []).map((t) => `${t.x},${t.y}`),
+    )
+    const tiles: string[] = []
+    // Corridor fog
+    for (const key of getCorridorTiles(quest)) {
+      if (!revealedTiles.has(key)) tiles.push(key)
+    }
+    // Room fog (tile by tile, skipping disabled)
+    for (const group of roomGroups) {
+      if (revealedGroups.has(group.id)) continue
+      for (const room of group.rooms) {
+        for (let x = room.x; x < room.x + room.width; x++) {
+          for (let y = room.y; y < room.y + room.height; y++) {
+            const key = `${x},${y}`
+            if (!disabled.has(key)) tiles.push(key)
+          }
+        }
+      }
+    }
+    return tiles
+  }, [mode, quest, revealedTiles, revealedGroups, roomGroups])
+
+  // In play mode, compute which room group each element belongs to
+
+  const elementGroupMap = useMemo(() => {
+    if (mode !== 'play') return null
+    const map = new Map<string, string>() // elementId → groupId
+    for (const group of roomGroups) {
+      for (const room of group.rooms) {
+        for (const el of quest.elements) {
+          if (map.has(el.id)) continue
+          const ex = el.position.x
+          const ey = el.position.y
+          const ew = el.width ?? 1
+          const eh = el.height ?? 1
+          if (ex + ew > room.x && ex < room.x + room.width &&
+              ey + eh > room.y && ey < room.y + room.height) {
+            map.set(el.id, group.id)
+          }
+        }
+      }
+    }
+    return map
+  }, [mode, quest, roomGroups])
+
+  // Group elements by type for layered rendering, filtering hidden in play mode
   const elementsByType = useMemo(() => {
     const map = new Map<ElementType, QuestElement[]>()
     for (const el of quest.elements) {
+      if (mode === 'play') {
+        // Always show doors, markers, and structural blocks
+        if (el.type === 'door' || el.type === 'marker') { /* visible */ }
+        else if (el.type === 'furniture' && (el.subtype === 'block' || el.subtype === 'doubleblock')) { /* visible */ }
+        // All other elements: only visible in revealed areas
+        else {
+          const groupId = elementGroupMap?.get(el.id)
+          // In a room — check if room group is revealed
+          if (groupId && !revealedGroups.has(groupId)) continue
+          // In a corridor — check if tile is revealed
+          if (!groupId && !revealedTiles.has(`${el.position.x},${el.position.y}`)) continue
+        }
+      }
       const list = map.get(el.type) ?? []
       list.push(el)
       map.set(el.type, list)
     }
     return map
-  }, [quest.elements])
+  }, [quest.elements, mode, elementGroupMap, revealedGroups, revealedTiles])
 
   // Sync external quest into store (only when it actually changes from outside)
   const lastExternalQuestRef = useRef(externalQuest)
@@ -237,9 +309,28 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
 
   const handleDragEnd = useCallback(
     (id: string, x: number, y: number) => {
+      if (mode === 'play') return
       doMoveElement(id, x, y)
     },
-    [doMoveElement],
+    [doMoveElement, mode],
+  )
+
+  // In play mode, clicking a door reveals the connected rooms
+  const handleElementSelect = useCallback(
+    (id: string) => {
+      if (mode === 'play') {
+        const el = quest.elements.find((e) => e.id === id)
+        if (el?.type === 'door') {
+          const groups = getGroupsForDoor(quest, el)
+          for (const groupId of groups) {
+            revealRoom(groupId)
+          }
+        }
+        return
+      }
+      selectElement(id)
+    },
+    [mode, quest, selectElement, revealRoom],
   )
 
   // Mouse down: start drag rect for disable or select
@@ -308,6 +399,20 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
       setDragRect(null)
     },
     [store, setDragRect],
+  )
+
+  // Play mode: clicking the board reveals corridor tiles via ray-cast
+  const handlePlayClick = useCallback(
+    (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (e.target !== e.target.getStage()) return
+      const tile = pointerToTile()
+      if (!tile) return
+      // Only reveal corridor tiles (not inside rooms — rooms are revealed by doors)
+      if (!isTileInRoom(quest, tile.x, tile.y)) {
+        revealCorridor(tile.x, tile.y)
+      }
+    },
+    [quest, pointerToTile, revealCorridor],
   )
 
   const handleStageClick = useCallback(
@@ -383,6 +488,8 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
         lock={lock}
         unlock={unlock}
         onEvent={(e) => onEventRef.current?.(e)}
+        mode={mode}
+        onSetMode={setMode}
       />
       <div style={{ position: 'relative', flex: 1 }}>
         <Stage
@@ -393,14 +500,14 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
           scaleY={scale}
           x={stagePos.x}
           y={stagePos.y}
-          draggable={!locked && (tool === 'select' || tool === 'place')}
+          draggable={!locked && mode === 'edit' && (tool === 'select' || tool === 'place')}
           onWheel={handleWheel}
-          onClick={locked ? undefined : handleStageClick}
-          onTap={locked ? undefined : handleStageClick}
-          onMouseDown={locked ? undefined : handleMouseDown}
-          onMouseMove={locked ? undefined : handleMouseMove}
-          onMouseUp={locked ? undefined : handleMouseUp}
-          style={{ cursor: locked ? 'not-allowed' : cursorMap[tool], opacity: locked ? 0.45 : 1, transition: 'opacity 0.3s ease' }}
+          onClick={locked ? undefined : mode === 'play' ? handlePlayClick : handleStageClick}
+          onTap={locked ? undefined : mode === 'play' ? handlePlayClick : handleStageClick}
+          onMouseDown={(locked || mode === 'play') ? undefined : handleMouseDown}
+          onMouseMove={(locked || mode === 'play') ? undefined : handleMouseMove}
+          onMouseUp={(locked || mode === 'play') ? undefined : handleMouseUp}
+          style={{ cursor: locked ? 'not-allowed' : mode === 'play' ? 'default' : cursorMap[tool], opacity: locked ? 0.45 : 1, transition: 'opacity 0.3s ease' }}
           onDragEnd={(e) => {
             if (e.target === stageRef.current) {
               setStagePos({ x: e.target.x(), y: e.target.y() })
@@ -430,14 +537,34 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
                     key={el.id}
                     element={el}
                     board={quest.board}
-                    isSelected={selectedElementIds.includes(el.id)}
-                    onSelect={selectElement}
+                    isSelected={mode === 'edit' && selectedElementIds.includes(el.id)}
+                    onSelect={handleElementSelect}
                     onDragEnd={handleDragEnd}
                   />
                 ))}
               </Layer>
             )
           })}
+
+          {/* Fog of War — dark overlay on unrevealed tiles (skips disabled tiles) */}
+          {mode === 'play' && (
+            <Layer listening={false}>
+              {fogTiles.map((key) => {
+                const [x, y] = key.split(',').map(Number)
+                return (
+                  <KonvaRect
+                    key={`fog-${key}`}
+                    x={x * quest.board.cellSize}
+                    y={y * quest.board.cellSize}
+                    width={quest.board.cellSize}
+                    height={quest.board.cellSize}
+                    fill="#111"
+                    opacity={0.85}
+                  />
+                )
+              })}
+            </Layer>
+          )}
         </Stage>
         {locked && (
           <div style={{

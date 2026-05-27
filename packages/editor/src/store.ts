@@ -9,6 +9,7 @@ import {
   toggleTile,
   toggleTilesRect,
 } from '@quest-editor/core'
+import { revealCorridorTiles, getStairwayTiles } from '@quest-editor/core'
 import type { EventEmitter } from './events'
 
 function normalizeRotation(deg: number): number {
@@ -32,6 +33,9 @@ export interface EditorState {
   dragRect: { x1: number; y1: number; x2: number; y2: number } | null
   locked: boolean
   lockReason: string | null
+  mode: 'edit' | 'play'
+  revealedGroups: Set<string>
+  revealedTiles: Set<string>
 
   // History
   _history: Quest[]
@@ -59,6 +63,10 @@ export interface EditorState {
   unlock: () => void
   undo: () => void
   redo: () => void
+  setMode: (mode: 'edit' | 'play') => void
+  revealRoom: (groupId: string) => void
+  revealCorridor: (x: number, y: number) => void
+  resetFog: () => void
 }
 
 /** Push current quest to history and return the new quest + history state */
@@ -86,6 +94,9 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
     dragRect: null,
     locked: false,
     lockReason: null,
+    mode: 'edit',
+    revealedGroups: new Set<string>(),
+    revealedTiles: new Set<string>(),
     _history: [],
     _future: [],
     canUndo: false,
@@ -276,5 +287,53 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
       })
       emitEvent({ type: 'quest:redo', quest: next })
     },
+    setMode: (mode) => {
+      if (mode === 'play') {
+        const s = get()
+        // Auto-reveal stairway tiles
+        const stairTiles = getStairwayTiles(s.quest)
+        // Also reveal corridor tiles visible from stairway via ray-cast
+        const initialTiles = new Set<string>(stairTiles)
+        for (const key of stairTiles) {
+          const [x, y] = key.split(',').map(Number)
+          for (const t of revealCorridorTiles(s.quest, x, y)) {
+            initialTiles.add(t)
+          }
+        }
+        set({
+          mode,
+          revealedGroups: new Set<string>(),
+          revealedTiles: initialTiles,
+          selectedElementId: null,
+          selectedElementIds: [],
+          placingEntry: null,
+          tool: 'select',
+        })
+      } else {
+        set({ mode, revealedGroups: new Set<string>(), revealedTiles: new Set<string>() })
+      }
+    },
+    revealRoom: (groupId) => {
+      const s = get()
+      if (s.mode !== 'play') return
+      if (s.revealedGroups.has(groupId)) return
+      const next = new Set(s.revealedGroups)
+      next.add(groupId)
+      set({ revealedGroups: next })
+      emitEvent({ type: 'room:revealed', groupId })
+    },
+    revealCorridor: (x, y) => {
+      const s = get()
+      if (s.mode !== 'play') return
+      const tiles = revealCorridorTiles(s.quest, x, y)
+      if (tiles.length === 0) return
+      const next = new Set(s.revealedTiles)
+      let added = false
+      for (const t of tiles) {
+        if (!next.has(t)) { next.add(t); added = true }
+      }
+      if (added) set({ revealedTiles: next })
+    },
+    resetFog: () => set({ revealedGroups: new Set<string>(), revealedTiles: new Set<string>() }),
   }))
 }

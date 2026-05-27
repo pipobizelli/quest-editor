@@ -37,6 +37,8 @@ export interface ElementPanelProps {
   lock?: (reason?: string) => void
   unlock?: () => void
   onEvent?: (event: import('../events').EditorEvent) => void
+  mode?: 'edit' | 'play'
+  onSetMode?: (mode: 'edit' | 'play') => void
 }
 
 export function ElementPanel({
@@ -60,6 +62,8 @@ export function ElementPanel({
   lock = () => {},
   unlock = () => {},
   onEvent,
+  mode = 'edit',
+  onSetMode,
 }: ElementPanelProps) {
   const [openCategory, setOpenCategory] = useState<ElementType | null>('hero')
   const [showValidation, setShowValidation] = useState(false)
@@ -105,16 +109,16 @@ export function ElementPanel({
       <div style={{ display: 'flex', gap: 4, padding: '6px 12px', borderBottom: `1px solid ${t.panelBorder}` }}>
         <button
           onClick={() => onSetTool('select')}
-          disabled={locked}
-          style={{ flex: 1, padding: '4px 8px', background: tool === 'select' ? t.toolBtnActiveBg : t.toolBtnBg, color: tool === 'select' ? t.toolBtnActiveColor : t.toolBtnColor, border: `1px solid ${tool === 'select' ? t.toolBtnActiveBorder : t.panelBorder}`, borderRadius: 4, cursor: locked ? 'not-allowed' : 'pointer', fontSize: 11, opacity: locked ? 0.5 : 1 }}
+          disabled={locked || mode === 'play'}
+          style={{ flex: 1, padding: '4px 8px', background: tool === 'select' ? t.toolBtnActiveBg : t.toolBtnBg, color: tool === 'select' ? t.toolBtnActiveColor : t.toolBtnColor, border: `1px solid ${tool === 'select' ? t.toolBtnActiveBorder : t.panelBorder}`, borderRadius: 4, cursor: (locked || mode === 'play') ? 'not-allowed' : 'pointer', fontSize: 11, opacity: (locked || mode === 'play') ? 0.5 : 1 }}
           title="Select (S)"
         >
           Select
         </button>
         <button
           onClick={() => onSetTool('disable')}
-          disabled={locked}
-          style={{ flex: 1, padding: '4px 8px', background: tool === 'disable' ? t.toolBtnActiveBg : t.toolBtnBg, color: tool === 'disable' ? t.toolBtnActiveColor : t.toolBtnColor, border: `1px solid ${tool === 'disable' ? t.toolBtnActiveBorder : t.panelBorder}`, borderRadius: 4, cursor: locked ? 'not-allowed' : 'pointer', fontSize: 11, opacity: locked ? 0.5 : 1 }}
+          disabled={locked || mode === 'play'}
+          style={{ flex: 1, padding: '4px 8px', background: tool === 'disable' ? t.toolBtnActiveBg : t.toolBtnBg, color: tool === 'disable' ? t.toolBtnActiveColor : t.toolBtnColor, border: `1px solid ${tool === 'disable' ? t.toolBtnActiveBorder : t.panelBorder}`, borderRadius: 4, cursor: (locked || mode === 'play') ? 'not-allowed' : 'pointer', fontSize: 11, opacity: (locked || mode === 'play') ? 0.5 : 1 }}
           title="Disable tiles (D)"
         >
           Disable
@@ -125,6 +129,22 @@ export function ElementPanel({
           title="Recenter board"
         >
           ⌖
+        </button>
+        <button
+          onClick={() => onSetMode?.(mode === 'edit' ? 'play' : 'edit')}
+          style={{
+            padding: '4px 8px',
+            background: mode === 'play' ? '#1a5a1a' : t.toolBtnBg,
+            color: mode === 'play' ? '#4ade80' : t.toolBtnColor,
+            border: `1px solid ${mode === 'play' ? '#2ecc71' : t.panelBorder}`,
+            borderRadius: 4,
+            cursor: 'pointer',
+            fontSize: 11,
+            fontWeight: mode === 'play' ? 600 : 400,
+          }}
+          title={mode === 'edit' ? 'Enter Play mode (Fog of War)' : 'Back to Edit mode'}
+        >
+          {mode === 'play' ? '▶ Play' : '▶'}
         </button>
       </div>
 

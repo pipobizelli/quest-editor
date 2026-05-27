@@ -9,6 +9,7 @@ export type EditorEvent =
   | { type: 'quest:loaded'; quest: Quest }
   | { type: 'quest:undo'; quest: Quest }
   | { type: 'quest:redo'; quest: Quest }
+  | { type: 'room:revealed'; groupId: string }
   | { type: 'plugin:event'; pluginId: string; action: string; data?: unknown }
 
 export type EventEmitter = (event: EditorEvent) => void

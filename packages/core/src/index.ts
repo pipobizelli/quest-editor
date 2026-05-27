@@ -34,11 +34,13 @@ export { isTileDisabled, toggleTile, toggleTilesRect } from './tiles'
 
 export { normalizeSubtype, isDisabledTile, isOccupiedTile, isTileBlocked } from './validation'
 
+export { isTileInRoom, revealCorridorTiles, getCorridorTiles, getStairwayTiles } from './fog'
+
 export type { IssueSeverity, QuestIssue } from './validate'
 export { validateQuest } from './validate'
 
 export type { RoomGroup } from './rooms'
-export { getElementsByRoom, getElementsByRooms, getElementsByAllRooms, roomHasDoor, isRoomValid, isRoomNarratable, getGroupedRooms, isGroupNarratable } from './rooms'
+export { getElementsByRoom, getElementsByRooms, getElementsByAllRooms, roomHasDoor, isRoomValid, isRoomNarratable, getGroupedRooms, getGroupsForDoor, isGroupNarratable } from './rooms'
 
 export type { MonsterStats } from './monster-stats'
 export { MONSTER_STATS, HERO_STATS, getMonsterStats, formatStatsTable } from './monster-stats'
