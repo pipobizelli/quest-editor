@@ -4,6 +4,7 @@ import { createNarratorPanel } from './NarratorPanel'
 
 export type { NarratorConfig } from './types'
 export { buildPrompt } from './prompt'
+export { buildGMScript } from './export-script'
 
 export function NarratorPlugin(config: NarratorConfig = {}): EditorPlugin {
   return {

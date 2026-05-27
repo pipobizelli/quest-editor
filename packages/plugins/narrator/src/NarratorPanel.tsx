@@ -4,6 +4,7 @@ import { getGroupedRooms, isGroupNarratable } from '@quest-editor/core'
 import type { PluginPanelProps } from '@quest-editor/editor'
 import type { NarratorConfig } from './types'
 import { buildPrompt } from './prompt'
+import { buildGMScript } from './export-script'
 
 const TONE_PRESETS = [
   { value: '', label: 'Default' },
@@ -96,6 +97,18 @@ export function createNarratorPanel(config: NarratorConfig) {
     )
 
     const pendingCount = groups.filter((g) => !narrations.has(g.id)).length
+    const hasAnyNarration = narrations.size > 0
+
+    const exportScript = useCallback(() => {
+      const script = buildGMScript(quest)
+      const blob = new Blob([script], { type: 'text/markdown' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${quest.name.toLowerCase().replace(/\s+/g, '-')}-gm-script.md`
+      a.click()
+      URL.revokeObjectURL(url)
+    }, [quest])
 
     if (!llmProvider) {
       return (
@@ -109,24 +122,43 @@ export function createNarratorPanel(config: NarratorConfig) {
       <div style={{ borderTop: '1px solid #555', padding: '8px 0' }}>
         <div style={{ padding: '4px 12px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: 12, fontWeight: 600, color: '#ccc' }}>Narrator</span>
-          {pendingCount > 0 && (
-            <button
-              onClick={generateAll}
-              disabled={loading !== null}
-              style={{
-                padding: '3px 8px',
-                background: 'transparent',
-                border: '1px solid #666',
-                color: '#bbb',
-                fontSize: 10,
-                cursor: loading ? 'wait' : 'pointer',
-                borderRadius: 3,
-                opacity: loading ? 0.5 : 1,
-              }}
-            >
-              {loading ? `${pendingCount - groups.filter((g) => !narrations.has(g.id)).length}/${pendingCount}` : `Gen All (${pendingCount})`}
-            </button>
-          )}
+          <div style={{ display: 'flex', gap: 4 }}>
+            {hasAnyNarration && (
+              <button
+                onClick={exportScript}
+                style={{
+                  padding: '3px 8px',
+                  background: 'transparent',
+                  border: '1px solid #666',
+                  color: '#bbb',
+                  fontSize: 10,
+                  cursor: 'pointer',
+                  borderRadius: 3,
+                }}
+                title="Export GM Script (markdown)"
+              >
+                Export
+              </button>
+            )}
+            {pendingCount > 0 && (
+              <button
+                onClick={generateAll}
+                disabled={loading !== null}
+                style={{
+                  padding: '3px 8px',
+                  background: 'transparent',
+                  border: '1px solid #666',
+                  color: '#bbb',
+                  fontSize: 10,
+                  cursor: loading ? 'wait' : 'pointer',
+                  borderRadius: 3,
+                  opacity: loading ? 0.5 : 1,
+                }}
+              >
+                {loading ? `${pendingCount - groups.filter((g) => !narrations.has(g.id)).length}/${pendingCount}` : `Gen All (${pendingCount})`}
+              </button>
+            )}
+          </div>
         </div>
         <div style={{ padding: '0 12px 6px', display: 'flex', gap: 4 }}>
           <select
