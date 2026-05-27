@@ -9,6 +9,7 @@ import {
   toggleTile,
   toggleTilesRect,
 } from '@quest-editor/core'
+import type { EventEmitter } from './events'
 
 function normalizeRotation(deg: number): number {
   return ((deg % 360) + 360) % 360
@@ -72,8 +73,10 @@ function pushHistory(s: EditorState, newQuest: Quest): Partial<EditorState> {
   }
 }
 
-export const createEditorStore = (initialQuest?: Partial<Quest>) =>
-  create<EditorState>((set) => ({
+export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmitter) => {
+  const emitEvent: EventEmitter = emit ?? (() => {})
+
+  return create<EditorState>((set, get) => ({
     quest: createQuest(initialQuest),
     selectedElementId: null,
     selectedElementIds: [],
@@ -88,52 +91,66 @@ export const createEditorStore = (initialQuest?: Partial<Quest>) =>
     canUndo: false,
     canRedo: false,
 
-    setQuest: (quest) => set((s) => ({
-      ...pushHistory(s, quest),
-      selectedElementId: null,
-      selectedElementIds: [],
-    })),
-    addElement: (element) =>
-      set((s) => {
-        if (s.locked) return s
-        return pushHistory(s, addElement(s.quest, element))
-      }),
-    removeElement: (id) =>
-      set((s) => {
-        if (s.locked) return s
-        return {
-          ...pushHistory(s, removeElement(s.quest, id)),
-          selectedElementId: s.selectedElementId === id ? null : s.selectedElementId,
-          selectedElementIds: s.selectedElementIds.filter((i) => i !== id),
-        }
-      }),
-    removeSelected: () =>
-      set((s) => {
-        if (s.locked) return s
-        let quest = s.quest
-        const ids = s.selectedElementIds.length > 0
-          ? s.selectedElementIds
-          : s.selectedElementId ? [s.selectedElementId] : []
-        if (ids.length === 0) return s
-        for (const id of ids) {
-          quest = removeElement(quest, id)
-        }
-        return {
-          ...pushHistory(s, quest),
-          selectedElementId: null,
-          selectedElementIds: [],
-        }
-      }),
-    updateElement: (id, updates) =>
-      set((s) => {
-        if (s.locked) return s
-        return pushHistory(s, updateElement(s.quest, id, updates))
-      }),
-    moveElement: (id, x, y) =>
-      set((s) => {
-        if (s.locked) return s
-        return pushHistory(s, moveElement(s.quest, id, x, y))
-      }),
+    setQuest: (quest) => {
+      set((s) => ({
+        ...pushHistory(s, quest),
+        selectedElementId: null,
+        selectedElementIds: [],
+      }))
+      emitEvent({ type: 'quest:loaded', quest })
+    },
+    addElement: (element) => {
+      const s = get()
+      if (s.locked) return
+      set((s) => pushHistory(s, addElement(s.quest, element)))
+      emitEvent({ type: 'element:added', element })
+    },
+    removeElement: (id) => {
+      const s = get()
+      if (s.locked) return
+      const el = s.quest.elements.find((e) => e.id === id)
+      set((s) => ({
+        ...pushHistory(s, removeElement(s.quest, id)),
+        selectedElementId: s.selectedElementId === id ? null : s.selectedElementId,
+        selectedElementIds: s.selectedElementIds.filter((i) => i !== id),
+      }))
+      if (el) emitEvent({ type: 'element:removed', element: el })
+    },
+    removeSelected: () => {
+      const s = get()
+      if (s.locked) return
+      const ids = s.selectedElementIds.length > 0
+        ? s.selectedElementIds
+        : s.selectedElementId ? [s.selectedElementId] : []
+      if (ids.length === 0) return
+      const removed = ids.map((id) => s.quest.elements.find((e) => e.id === id)).filter(Boolean) as QuestElement[]
+      let quest = s.quest
+      for (const id of ids) {
+        quest = removeElement(quest, id)
+      }
+      set((s) => ({
+        ...pushHistory(s, quest),
+        selectedElementId: null,
+        selectedElementIds: [],
+      }))
+      for (const el of removed) {
+        emitEvent({ type: 'element:removed', element: el })
+      }
+    },
+    updateElement: (id, updates) => {
+      const s = get()
+      if (s.locked) return
+      const el = s.quest.elements.find((e) => e.id === id)
+      set((s) => pushHistory(s, updateElement(s.quest, id, updates)))
+      if (el) emitEvent({ type: 'element:updated', element: el, changes: updates })
+    },
+    moveElement: (id, x, y) => {
+      const s = get()
+      if (s.locked) return
+      const el = s.quest.elements.find((e) => e.id === id)
+      set((s) => pushHistory(s, moveElement(s.quest, id, x, y)))
+      if (el) emitEvent({ type: 'element:moved', element: el, from: { ...el.position }, to: { x, y } })
+    },
     selectElement: (id) =>
       set((s) => {
         if (s.locked) return s
@@ -176,21 +193,18 @@ export const createEditorStore = (initialQuest?: Partial<Quest>) =>
         if (s.locked) return s
         return { placingRotation: normalizeRotation(s.placingRotation + 90) }
       }),
-    rotateSelected: () =>
-      set((s) => {
-        if (s.locked) return s
-        if (!s.selectedElementId) return s
-        const el = s.quest.elements.find((e) => e.id === s.selectedElementId)
-        if (!el) return s
+    rotateSelected: () => {
+      const s = get()
+      if (s.locked || !s.selectedElementId) return
+      const el = s.quest.elements.find((e) => e.id === s.selectedElementId)
+      if (!el) return
 
-        // Doors (non-secret) use orientation instead of rotation
-        if (el.type === 'door' && el.subtype !== 'secret') {
-          const newOrientation = el.orientation === 'vertical' ? 'horizontal' : 'vertical'
-          return pushHistory(s, updateElement(s.quest, s.selectedElementId, {
-            orientation: newOrientation,
-          }))
-        }
-
+      if (el.type === 'door' && el.subtype !== 'secret') {
+        const newOrientation = el.orientation === 'vertical' ? 'horizontal' : 'vertical'
+        set((s) => pushHistory(s, updateElement(s.quest, s.selectedElementId!, {
+          orientation: newOrientation,
+        })))
+      } else {
         const currentRotation = el.rotation ?? 0
         const newRotation = normalizeRotation(currentRotation + 90)
         const w = el.width ?? 1
@@ -202,8 +216,10 @@ export const createEditorStore = (initialQuest?: Partial<Quest>) =>
           updates.width = h
           updates.height = w
         }
-        return pushHistory(s, updateElement(s.quest, s.selectedElementId, updates))
-      }),
+        set((s) => pushHistory(s, updateElement(s.quest, s.selectedElementId!, updates)))
+      }
+      emitEvent({ type: 'element:rotated', element: el })
+    },
     toggleDisabledTile: (x, y) =>
       set((s) => {
         if (s.locked) return s
@@ -228,34 +244,37 @@ export const createEditorStore = (initialQuest?: Partial<Quest>) =>
       tool: 'select',
     }),
     unlock: () => set({ locked: false, lockReason: null }),
-    undo: () =>
-      set((s) => {
-        if (s.locked || s._history.length === 0) return s
-        const history = [...s._history]
-        const previous = history.pop()!
-        return {
-          quest: previous,
-          _history: history,
-          _future: [s.quest, ...s._future].slice(0, MAX_HISTORY),
-          canUndo: history.length > 0,
-          canRedo: true,
-          selectedElementId: null,
-          selectedElementIds: [],
-        }
-      }),
-    redo: () =>
-      set((s) => {
-        if (s.locked || s._future.length === 0) return s
-        const future = [...s._future]
-        const next = future.shift()!
-        return {
-          quest: next,
-          _history: [...s._history, s.quest].slice(-MAX_HISTORY),
-          _future: future,
-          canUndo: true,
-          canRedo: future.length > 0,
-          selectedElementId: null,
-          selectedElementIds: [],
-        }
-      }),
+    undo: () => {
+      const s = get()
+      if (s.locked || s._history.length === 0) return
+      const history = [...s._history]
+      const previous = history.pop()!
+      set({
+        quest: previous,
+        _history: history,
+        _future: [s.quest, ...s._future].slice(0, MAX_HISTORY),
+        canUndo: history.length > 0,
+        canRedo: true,
+        selectedElementId: null,
+        selectedElementIds: [],
+      })
+      emitEvent({ type: 'quest:undo', quest: previous })
+    },
+    redo: () => {
+      const s = get()
+      if (s.locked || s._future.length === 0) return
+      const future = [...s._future]
+      const next = future.shift()!
+      set({
+        quest: next,
+        _history: [...s._history, s.quest].slice(-MAX_HISTORY),
+        _future: future,
+        canUndo: true,
+        canRedo: future.length > 0,
+        selectedElementId: null,
+        selectedElementIds: [],
+      })
+      emitEvent({ type: 'quest:redo', quest: next })
+    },
   }))
+}

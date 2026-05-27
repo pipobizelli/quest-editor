@@ -7,6 +7,7 @@ import { Grid } from './Grid'
 import { QuestElementNode } from './QuestElementNode'
 import { ElementPanel } from './ElementPanel'
 import { createEditorStore, type EditorState } from '../store'
+import type { EditorEvent } from '../events'
 import { ThemeContext, useEditorTheme } from '../ThemeContext'
 import { DEFAULT_THEME, THEMES, type EditorTheme } from '../themes'
 import type { EditorPlugin, LLMProvider } from '../plugins'
@@ -16,6 +17,7 @@ import { useStore } from 'zustand'
 export interface QuestEditorProps {
   quest?: Quest
   onChange?: (quest: Quest) => void
+  onEvent?: (event: EditorEvent) => void
   width?: number
   height?: number
   theme?: EditorTheme | string
@@ -38,6 +40,7 @@ const PANEL_WIDTH = 220
 export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(function QuestEditor({
   quest: externalQuest,
   onChange,
+  onEvent,
   width: containerWidth = 800,
   height: containerHeight = 600,
   theme: themeProp,
@@ -47,9 +50,12 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
   llmProvider,
 }, ref) {
   const resolvedTheme = typeof themeProp === 'string' ? (THEMES[themeProp] ?? DEFAULT_THEME) : (themeProp ?? DEFAULT_THEME)
+  // Stable ref for the event callback so the store doesn't need to be recreated
+  const onEventRef = useRef(onEvent)
+  onEventRef.current = onEvent
   const storeRef = useRef<StoreApi<EditorState> | null>(null)
   if (!storeRef.current) {
-    storeRef.current = createEditorStore(externalQuest)
+    storeRef.current = createEditorStore(externalQuest, (e) => onEventRef.current?.(e))
   }
   const store = storeRef.current
 
@@ -376,6 +382,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
         locked={locked}
         lock={lock}
         unlock={unlock}
+        onEvent={(e) => onEventRef.current?.(e)}
       />
       <div style={{ position: 'relative', flex: 1 }}>
         <Stage

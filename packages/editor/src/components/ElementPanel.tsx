@@ -36,6 +36,7 @@ export interface ElementPanelProps {
   locked?: boolean
   lock?: (reason?: string) => void
   unlock?: () => void
+  onEvent?: (event: import('../events').EditorEvent) => void
 }
 
 export function ElementPanel({
@@ -58,6 +59,7 @@ export function ElementPanel({
   locked = false,
   lock = () => {},
   unlock = () => {},
+  onEvent,
 }: ElementPanelProps) {
   const [openCategory, setOpenCategory] = useState<ElementType | null>('hero')
   const [showValidation, setShowValidation] = useState(false)
@@ -179,6 +181,7 @@ export function ElementPanel({
               locked={locked}
               lock={lock}
               unlock={unlock}
+              emit={(action, data) => onEvent?.({ type: 'plugin:event', pluginId: plugin.id, action, data })}
             />
           ) : null,
         )}

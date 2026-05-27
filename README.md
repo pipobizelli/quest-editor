@@ -174,7 +174,68 @@ Provides tactical advice for Zargon (the Game Master). Analyzes the full board a
 
 ### Reinforcements
 
-Suggests additional monster placements to increase quest difficulty. Outputs structured JSON with monster types, grid positions, and tactical reasons. Understands trap synergy and return-path blocking.
+Suggests additional monster placements to increase quest difficulty. Outputs structured JSON with monster types, grid positions, and tactical reasons. Understands trap synergy and return-path blocking. Validates subtypes and rejects placements on disabled/occupied tiles.
+
+### Remix
+
+Remixes a quest for replayability and increased difficulty. Three levels: Hard, Heroic, Legendary. Can upgrade monsters (within family: living/undead), reposition elements, add/remove monsters and traps, and rearrange layouts. Per-change checkboxes let you pick which suggestions to apply. Integrates undo for safe experimentation.
+
+## Events
+
+The editor emits events for tracking game statistics and session analytics:
+
+```tsx
+import { QuestEditor, type EditorEvent } from '@quest-editor/editor'
+
+function handleEvent(event: EditorEvent) {
+  switch (event.type) {
+    case 'element:removed':
+      if (event.element.type === 'monster') {
+        console.log(`Monster killed: ${event.element.subtype}`)
+      }
+      break
+    case 'element:moved':
+      console.log(`Moved from (${event.from.x},${event.from.y}) to (${event.to.x},${event.to.y})`)
+      break
+  }
+}
+
+<QuestEditor quest={quest} onChange={setQuest} onEvent={handleEvent} />
+```
+
+### Event types
+
+| Event | Fields | When |
+|---|---|---|
+| `element:added` | `element` | Element placed on board |
+| `element:removed` | `element` | Element deleted |
+| `element:moved` | `element`, `from`, `to` | Element dragged to new position |
+| `element:updated` | `element`, `changes` | Element properties changed |
+| `element:rotated` | `element` | Element rotated |
+| `quest:loaded` | `quest` | Quest loaded, imported, or set by plugin |
+| `quest:undo` | `quest` | Undo performed |
+| `quest:redo` | `quest` | Redo performed |
+| `plugin:event` | `pluginId`, `action`, `data` | Custom event from a plugin |
+
+Plugins can emit custom events via the `emit` function in `PluginPanelProps`:
+
+```tsx
+// Inside a plugin panel
+emit('narration:generated', { roomId: 'room-1', text: '...' })
+// → { type: 'plugin:event', pluginId: 'narrator', action: 'narration:generated', data: { ... } }
+```
+
+## Validation
+
+Real-time quest validation in the editor panel. Checks for:
+
+- Missing stairway (error)
+- Elements outside board bounds (error)
+- Elements on disabled tiles (error)
+- Unknown element subtypes (warning)
+- Doors without orientation (warning)
+- Rooms with content but no connected door (warning)
+- Overlapping monsters/heroes/NPCs (warning)
 
 ## Game Rules
 
@@ -197,6 +258,8 @@ import {
 
 | Key | Action |
 |-----|--------|
+| `Cmd+Z` / `Ctrl+Z` | Undo |
+| `Cmd+Shift+Z` / `Ctrl+Y` | Redo |
 | `R` | Rotate selected/placing element |
 | `S` | Switch to Select tool |
 | `D` | Switch to Disable tile tool |

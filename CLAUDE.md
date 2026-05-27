@@ -16,12 +16,12 @@ pnpm test:run     # Run tests once
 ## Architecture
 
 - **Monorepo**: pnpm workspaces
-- **`packages/core`** (`@quest-editor/core`): Pure TypeScript, no UI deps. Types, quest operations, board layout, monster stats, game rules constants.
-- **`packages/editor`** (`@quest-editor/editor`): React + Konva canvas, Zustand store, theme system, plugin system, lock system.
-- **`packages/plugins/narrator`**: AI narration for room reveals. Uses creature lore and trap awareness.
-- **`packages/plugins/strategist`**: AI tactical advice for Zargon. Full rules knowledge (combat, spells, traps, armory).
-- **`packages/plugins/reinforcements`**: AI monster placement suggestions. Outputs JSON with positions.
-- **`packages/plugins/remix`**: AI quest remixing with difficulty levels. Upgrades monsters, repositions elements, adds/removes content. Has extracted `apply.ts` with pure logic.
+- **`packages/core`** (`@quest-editor/core`): Pure TypeScript, no UI deps. Types, quest operations, board layout, monster stats, game rules constants, validation, tile utilities.
+- **`packages/editor`** (`@quest-editor/editor`): React + Konva canvas, Zustand store, theme system, plugin system, lock system, event system, undo/redo, validation panel.
+- **`packages/plugins/narrator`**: AI narration for room reveals. Creature lore, trap awareness, tone presets, cross-room context, generate-all, GM script export.
+- **`packages/plugins/strategist`**: AI tactical advice for Zargon. Full rules knowledge.
+- **`packages/plugins/reinforcements`**: AI monster placement. Validates subtypes and tile availability.
+- **`packages/plugins/remix`**: AI quest remixing with difficulty levels. Extracted `apply.ts` with pure logic.
 - **`apps/playground`**: Vite app for dev/testing. Loads `public/quests/barak_tor.json` as default quest.
 - **`docs/`**: HeroQuest rules reference (rules, monsters, spells, armory, remix guidelines).
 
@@ -34,23 +34,38 @@ pnpm test:run     # Run tests once
 - **Themes**: `editor/themes.ts` — default is `stone`. Four built-in: dark, stone, parchment, light.
 - **Plugin prompts**: Use XML-structured tags (`<quest>`, `<room>`, `<rules>`, `<game_rules>`, etc.) for clear LLM context.
 - **Lock system**: `lock(reason?)` / `unlock()` on store and via `QuestEditorHandle` ref. All mutating actions are guarded. `setQuest` is intentionally NOT guarded so plugins can apply changes. Visual: canvas at 0.45 opacity + SVG spinner.
-- **Plugin props**: `PluginPanelProps` includes `quest`, `onUpdateQuest`, `llmProvider`, `lock`, `unlock`, `locked`.
+- **Plugin props**: `PluginPanelProps` includes `quest`, `onUpdateQuest`, `llmProvider`, `lock`, `unlock`, `locked`, `emit`.
+- **Undo/Redo**: History stack (max 50) in Zustand store. All quest-mutating actions push to history. Cmd+Z / Cmd+Shift+Z keyboard shortcuts. Exposed via `QuestEditorHandle`.
+- **Events**: `onEvent` prop on QuestEditor. Store emits events for element add/remove/move/update/rotate, quest load/undo/redo. Plugins emit custom events via `emit(action, data)`.
+- **Validation**: `validateQuest()` in core returns errors/warnings. Real-time display in editor panel.
+- **Grouped rooms**: L-shaped rooms share a `group` field. `getGroupedRooms()` combines them. Narrator generates one narration per group.
+- **Multi-tile elements**: `getElementsByRoom` uses AABB overlap, not just origin position.
+- **Tile validation**: `normalizeSubtype`, `isDisabledTile`, `isOccupiedTile`, `isTileBlocked` in `core/validation.ts`. Used by remix and reinforcements.
 
 ## Remix Plugin Internals
 
-- **apply.ts**: Extracted pure functions — `applyRemix`, `resolveElement`, `normalizeSubtype`, `isTileBlocked`, `createDefaultSelection`.
-- **normalizeSubtype**: Maps LLM aliases to valid catalog entries (e.g., `chaos_warrior` → `chaos`, `falling_block` → `fallingrock`). Returns `null` for unknown subtypes.
-- **isTileBlocked**: Rejects disabled tiles AND occupied tiles (including multi-tile furniture).
+- **apply.ts**: Extracted pure functions — `applyRemix`, `resolveElement`, `createDefaultSelection`.
+- **normalizeSubtype** (in core): Maps LLM aliases to valid catalog entries (e.g., `chaos_warrior` → `chaos`).
+- **isTileBlocked** (in core): Rejects disabled tiles AND occupied tiles (including multi-tile furniture).
 - **resolveElement**: 3-level fallback for when LLM returns wrong IDs: exact ID → subtype+position → position only → subtype only.
 - **Monster families**: Living (goblin→orc→fimir→chaos→gargoyle) and Undead (skeleton→zombie→mummy) must never cross in upgrades.
 - **Selective apply**: Per-change checkboxes. User can uncheck individual changes before applying.
 
+## Narrator Plugin Internals
+
+- **Tone presets**: Dark Fantasy, Gore, Humorous, Poetic, Suspense, Children-friendly + custom.
+- **Cross-room context**: `buildPrompt` accepts `previousNarrations` — previous room texts are injected so the LLM builds a narrative arc.
+- **Generate All**: Sequential generation of all pending rooms, with accumulated context.
+- **GM Script Export**: `buildGMScript()` generates markdown with title, description, notes, and numbered narrations.
+- **Grouped rooms**: L-shaped rooms generate one narration, elements collected from all parts.
+
 ## Testing
 
-- 119 tests across 10 files. Run with `pnpm test:run`.
+- 200 tests across 15 files. Run with `pnpm test:run`.
 - Vitest workspace config includes: `packages/core`, `packages/editor`, and all 4 plugin packages.
-- Each plugin has `__tests__/prompt.test.ts`. Remix also has `__tests__/apply.test.ts`.
-- Editor has `__tests__/store.test.ts` and `__tests__/lock.test.ts`.
+- Core: quest, serialization, board-layout, rooms, validate
+- Editor: store, lock, undo-redo, events
+- Plugins: prompt tests for all 4, apply tests for remix, export-script for narrator
 
 ## Known Issues
 

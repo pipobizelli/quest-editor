@@ -1,4 +1,5 @@
 import type { Quest } from '@quest-editor/core'
+import type { EditorEvent } from './events'
 
 export interface LLMProvider {
   generate: (prompt: string) => Promise<string>
@@ -18,4 +19,5 @@ export interface PluginPanelProps {
   lock: (reason?: string) => void
   unlock: () => void
   locked: boolean
+  emit: (action: string, data?: unknown) => void
 }
