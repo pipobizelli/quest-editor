@@ -1,4 +1,5 @@
-import type { Quest, QuestElement, Room, Position } from './types'
+import type { Quest, QuestElement, Room } from './types'
+import { tileKey, buildDisabledSet } from './tiles'
 
 /**
  * Checks if a door element is properly connected to a room's wall,
@@ -43,12 +44,10 @@ export function roomHasDoor(quest: Quest, room: Room): boolean {
  * Returns true if the room has at least one non-disabled tile.
  */
 export function isRoomValid(quest: Quest, room: Room): boolean {
-  const disabled = new Set(
-    (quest.disabledTiles ?? []).map((t) => `${t.x},${t.y}`),
-  )
+  const disabled = buildDisabledSet(quest)
   for (let x = room.x; x < room.x + room.width; x++) {
     for (let y = room.y; y < room.y + room.height; y++) {
-      if (!disabled.has(`${x},${y}`)) return true
+      if (!disabled.has(tileKey(x, y))) return true
     }
   }
   return false
@@ -147,6 +146,22 @@ export function getGroupedRooms(quest: Quest): RoomGroup[] {
   }
 
   return groups
+}
+
+/**
+ * Returns the group IDs that a door connects to.
+ */
+export function getGroupsForDoor(quest: Quest, doorElement: QuestElement): string[] {
+  const groups = getGroupedRooms(quest)
+  const connected = new Set<string>()
+  for (const group of groups) {
+    for (const room of group.rooms) {
+      if (isDoorConnectedToRoom(doorElement, room)) {
+        connected.add(group.id)
+      }
+    }
+  }
+  return [...connected]
 }
 
 /**

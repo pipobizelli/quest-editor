@@ -2,7 +2,7 @@ import type { Quest, QuestElement } from './types'
 import { isWithinBoard } from './quest'
 import { getCatalogEntry } from './catalog'
 import { roomHasDoor, getElementsByRoom } from './rooms'
-import { isDisabledTile } from './validation'
+import { isDisabledTile } from './tiles'
 
 export type IssueSeverity = 'error' | 'warning'
 

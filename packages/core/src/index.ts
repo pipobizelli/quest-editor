@@ -30,14 +30,14 @@ export { HEROQUEST_LAYOUT, deriveWalls } from './board-layout'
 export type { CatalogEntry } from './catalog'
 export { CATALOG, getCatalogByType, getCatalogEntry } from './catalog'
 
-export { isTileDisabled, toggleTile, toggleTilesRect } from './tiles'
+export { tileKey, parseTileKey, buildDisabledSet, isDisabledTile, toggleTile, toggleTilesRect } from './tiles'
 
-export { normalizeSubtype, isDisabledTile, isOccupiedTile, isTileBlocked } from './validation'
+export { normalizeSubtype, isOccupiedTile, isTileBlocked } from './validation'
 
 export { isTileInRoom, revealCorridorTiles, getCorridorTiles, getStairwayTiles } from './fog'
 
-export type { IssueSeverity, QuestIssue } from './validate'
-export { validateQuest } from './validate'
+export type { IssueSeverity, QuestIssue } from './quest-validate'
+export { validateQuest } from './quest-validate'
 
 export type { RoomGroup } from './rooms'
 export { getElementsByRoom, getElementsByRooms, getElementsByAllRooms, roomHasDoor, isRoomValid, isRoomNarratable, getGroupedRooms, getGroupsForDoor, isGroupNarratable } from './rooms'

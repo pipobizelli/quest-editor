@@ -9,7 +9,7 @@ import {
   toggleTile,
   toggleTilesRect,
 } from '@quest-editor/core'
-import { revealCorridorTiles, getStairwayTiles } from '@quest-editor/core'
+import { revealCorridorTiles, getStairwayTiles, parseTileKey } from '@quest-editor/core'
 import type { EventEmitter } from './events'
 
 function normalizeRotation(deg: number): number {
@@ -295,7 +295,7 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
         // Also reveal corridor tiles visible from stairway via ray-cast
         const initialTiles = new Set<string>(stairTiles)
         for (const key of stairTiles) {
-          const [x, y] = key.split(',').map(Number)
+          const [x, y] = parseTileKey(key)
           for (const t of revealCorridorTiles(s.quest, x, y)) {
             initialTiles.add(t)
           }

@@ -284,8 +284,9 @@ function SpriteImage({
   offsetX?: number;
   offsetY?: number;
 }) {
-  // When rotated 90°/-90°, fit sprite in the pre-rotation (swapped) dimensions
-  const isRotated = rotation === 90 || rotation === -90;
+  // When rotated 90°/270°, fit sprite in the pre-rotation (swapped) dimensions
+  const normalizedRotation = ((rotation % 360) + 360) % 360;
+  const isRotated = normalizedRotation === 90 || normalizedRotation === 270;
   const fitW = (isRotated ? areaHeight : areaWidth) - padding * 2;
   const fitH = (isRotated ? areaWidth : areaHeight) - padding * 2;
 

@@ -1,11 +1,23 @@
 import type { Quest, Position } from './types'
 
-function tileKey(x: number, y: number): string {
+/** Canonical string key for a tile position. Used as Set/Map key across the codebase. */
+export function tileKey(x: number, y: number): string {
   return `${x},${y}`
 }
 
-export function isTileDisabled(quest: Quest, x: number, y: number): boolean {
-  return quest.disabledTiles?.some((p) => p.x === x && p.y === y) ?? false
+/** Parse a tile key back to [x, y]. */
+export function parseTileKey(key: string): [number, number] {
+  const [x, y] = key.split(',').map(Number)
+  return [x, y]
+}
+
+/** Build a Set of disabled tile keys for O(1) lookup. */
+export function buildDisabledSet(quest: Quest): Set<string> {
+  return new Set((quest.disabledTiles ?? []).map((t) => tileKey(t.x, t.y)))
+}
+
+export function isDisabledTile(quest: Quest, x: number, y: number): boolean {
+  return (quest.disabledTiles ?? []).some((t) => t.x === x && t.y === y)
 }
 
 export function toggleTile(quest: Quest, x: number, y: number): Quest {
@@ -31,11 +43,8 @@ export function toggleTilesRect(
   const minY = Math.min(y1, y2)
   const maxY = Math.max(y1, y2)
 
-  const existing = new Set(
-    (quest.disabledTiles ?? []).map((p) => tileKey(p.x, p.y)),
-  )
+  const existing = buildDisabledSet(quest)
 
-  // Check if majority of rect tiles are already disabled → remove them, otherwise add
   let disabledCount = 0
   const rectTiles: Position[] = []
   for (let x = minX; x <= maxX; x++) {
@@ -57,7 +66,6 @@ export function toggleTilesRect(
     }
   }
 
-  // Add tiles that aren't already disabled
   const newTiles = rectTiles.filter((p) => !existing.has(tileKey(p.x, p.y)))
   return {
     ...quest,

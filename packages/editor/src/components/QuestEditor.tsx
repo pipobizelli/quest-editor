@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback, useMemo, useImperativeHandle, forwardRef } from 'react'
 import { Stage, Layer, Rect as KonvaRect } from 'react-konva'
 import type { Quest, QuestElement, ElementType } from '@quest-editor/core'
-import { LAYER_ORDER, createElement, getGroupedRooms, getGroupsForDoor, getCorridorTiles, isTileInRoom } from '@quest-editor/core'
+import { LAYER_ORDER, createElement, getGroupedRooms, getGroupsForDoor, getCorridorTiles, isTileInRoom, tileKey, parseTileKey, buildDisabledSet } from '@quest-editor/core'
 import type Konva from 'konva'
 import { Grid } from './Grid'
 import { QuestElementNode } from './QuestElementNode'
@@ -133,9 +133,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
   // All tiles that should have fog (rooms + corridors, excluding disabled tiles)
   const fogTiles = useMemo(() => {
     if (mode !== 'play') return []
-    const disabled = new Set(
-      (quest.disabledTiles ?? []).map((t) => `${t.x},${t.y}`),
-    )
+    const disabled = buildDisabledSet(quest)
     const tiles: string[] = []
     // Corridor fog
     for (const key of getCorridorTiles(quest)) {
@@ -147,7 +145,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
       for (const room of group.rooms) {
         for (let x = room.x; x < room.x + room.width; x++) {
           for (let y = room.y; y < room.y + room.height; y++) {
-            const key = `${x},${y}`
+            const key = tileKey(x, y)
             if (!disabled.has(key)) tiles.push(key)
           }
         }
@@ -193,7 +191,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
           // In a room — check if room group is revealed
           if (groupId && !revealedGroups.has(groupId)) continue
           // In a corridor — check if tile is revealed
-          if (!groupId && !revealedTiles.has(`${el.position.x},${el.position.y}`)) continue
+          if (!groupId && !revealedTiles.has(tileKey(el.position.x, el.position.y))) continue
         }
       }
       const list = map.get(el.type) ?? []
@@ -550,7 +548,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
           {mode === 'play' && (
             <Layer listening={false}>
               {fogTiles.map((key) => {
-                const [x, y] = key.split(',').map(Number)
+                const [x, y] = parseTileKey(key)
                 return (
                   <KonvaRect
                     key={`fog-${key}`}

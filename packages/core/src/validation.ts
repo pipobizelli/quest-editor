@@ -1,5 +1,6 @@
 import type { Quest, QuestElement, ElementType } from './types'
 import { getCatalogEntry } from './catalog'
+import { isDisabledTile } from './tiles'
 
 // ─── Subtype Normalization ───────────────────────────────────────────
 
@@ -33,10 +34,6 @@ export function normalizeSubtype(type: ElementType, subtype: string): string | n
 }
 
 // ─── Tile Availability ───────────────────────────────────────────────
-
-export function isDisabledTile(quest: Quest, x: number, y: number): boolean {
-  return (quest.disabledTiles ?? []).some((t) => t.x === x && t.y === y)
-}
 
 export function isOccupiedTile(elements: QuestElement[], x: number, y: number): boolean {
   return elements.some((e) => {

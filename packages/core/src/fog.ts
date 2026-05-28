@@ -1,4 +1,5 @@
-import type { Quest, Room } from './types'
+import type { Quest } from './types'
+import { tileKey, buildDisabledSet, isDisabledTile } from './tiles'
 
 /**
  * Check if a tile is inside any room.
@@ -15,7 +16,7 @@ export function isTileInRoom(quest: Quest, x: number, y: number): boolean {
  */
 function isCorridorBlocked(quest: Quest, x: number, y: number): boolean {
   if (x < 0 || x >= quest.board.width || y < 0 || y >= quest.board.height) return true
-  if ((quest.disabledTiles ?? []).some((t) => t.x === x && t.y === y)) return true
+  if (isDisabledTile(quest, x, y)) return true
   if (isTileInRoom(quest, x, y)) return true
   // Furniture blocks act as walls
   for (const el of quest.elements) {
@@ -40,13 +41,13 @@ export function revealCorridorTiles(quest: Quest, startX: number, startY: number
   if (isCorridorBlocked(quest, startX, startY)) return []
 
   const revealed = new Set<string>()
-  revealed.add(`${startX},${startY}`)
+  revealed.add(tileKey(startX, startY))
 
   for (const [dx, dy] of DIRECTIONS) {
     let x = startX + dx
     let y = startY + dy
     while (!isCorridorBlocked(quest, x, y)) {
-      revealed.add(`${x},${y}`)
+      revealed.add(tileKey(x, y))
       x += dx
       y += dy
     }
@@ -60,12 +61,10 @@ export function revealCorridorTiles(quest: Quest, startX: number, startY: number
  */
 export function getCorridorTiles(quest: Quest): string[] {
   const tiles: string[] = []
-  const disabled = new Set(
-    (quest.disabledTiles ?? []).map((t) => `${t.x},${t.y}`),
-  )
+  const disabled = buildDisabledSet(quest)
   for (let x = 0; x < quest.board.width; x++) {
     for (let y = 0; y < quest.board.height; y++) {
-      const key = `${x},${y}`
+      const key = tileKey(x, y)
       if (disabled.has(key)) continue
       if (isTileInRoom(quest, x, y)) continue
       tiles.push(key)
@@ -85,7 +84,7 @@ export function getStairwayTiles(quest: Quest): string[] {
       const h = el.height ?? 1
       for (let dx = 0; dx < w; dx++) {
         for (let dy = 0; dy < h; dy++) {
-          tiles.push(`${el.position.x + dx},${el.position.y + dy}`)
+          tiles.push(tileKey(el.position.x + dx, el.position.y + dy))
         }
       }
     }
