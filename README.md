@@ -48,7 +48,7 @@ quest-editor/
 Install both packages in your project:
 
 ```bash
-pnpm add @quest-editor/core @quest-editor/editor
+npm install @quest-editor/core @quest-editor/editor konva react-konva zustand
 ```
 
 Then use the editor component:
@@ -74,6 +74,10 @@ function App() {
 ```
 
 ### With plugins
+
+```bash
+npm install @quest-editor/plugin-narrator @quest-editor/plugin-strategist @quest-editor/plugin-reinforcements @quest-editor/plugin-remix
+```
 
 ```tsx
 import { QuestEditor, type LLMProvider } from '@quest-editor/editor'
