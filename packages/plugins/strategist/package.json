@@ -12,7 +12,7 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --external react --external react-dom --external @quest-editor/core --external @quest-editor/editor",
+    "build": "tsup src/index.ts --format esm --dts --tsconfig tsconfig.build.json --external react --external react-dom --external @quest-editor/core --external @quest-editor/editor",
     "dev": "tsup src/index.ts --format esm --dts --external react --external react-dom --external @quest-editor/core --external @quest-editor/editor --watch"
   },
   "dependencies": {

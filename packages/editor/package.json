@@ -12,7 +12,7 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --external react --external react-dom --external react-konva --external konva",
+    "build": "tsup src/index.ts --format esm --dts --tsconfig tsconfig.build.json --external react --external react-dom --external react-konva --external konva",
     "dev": "tsup src/index.ts --format esm --dts --external react --external react-dom --external react-konva --external konva --watch"
   },
   "dependencies": {
