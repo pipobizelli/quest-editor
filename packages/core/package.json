@@ -17,5 +17,13 @@
   },
   "devDependencies": {
     "tsup": "^8.4.0"
+  },
+  "license": "MIT",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }

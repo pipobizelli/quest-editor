@@ -15,16 +15,25 @@
     "build": "tsup src/index.ts --format esm --dts --tsconfig tsconfig.build.json --external react --external react-dom --external @quest-editor/core --external @quest-editor/editor",
     "dev": "tsup src/index.ts --format esm --dts --external react --external react-dom --external @quest-editor/core --external @quest-editor/editor --watch"
   },
-  "dependencies": {
-    "@quest-editor/core": "workspace:*",
-    "@quest-editor/editor": "workspace:*"
-  },
+  "dependencies": {},
   "peerDependencies": {
+    "@quest-editor/core": "^0.1.0",
+    "@quest-editor/editor": "^0.1.0",
     "react": "^18.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.18",
     "react": "^18.3.1",
-    "tsup": "^8.4.0"
+    "tsup": "^8.4.0",
+    "@quest-editor/core": "workspace:*",
+    "@quest-editor/editor": "workspace:*"
+  },
+  "license": "MIT",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }

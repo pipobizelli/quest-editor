@@ -69,15 +69,6 @@ importers:
       '@quest-editor/core':
         specifier: workspace:*
         version: link:../core
-      konva:
-        specifier: ^9.3.18
-        version: 9.3.22
-      react-konva:
-        specifier: ^18.2.10
-        version: 18.2.16(@types/react@18.3.29)(konva@9.3.22)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      zustand:
-        specifier: ^5.0.5
-        version: 5.0.13(@types/react@18.3.29)(react@18.3.1)
     devDependencies:
       '@types/react':
         specifier: ^18.3.18
@@ -85,25 +76,33 @@ importers:
       jsdom:
         specifier: ^26.1.0
         version: 26.1.0
+      konva:
+        specifier: ^9.3.18
+        version: 9.3.22
       react:
         specifier: ^18.3.1
         version: 18.3.1
       react-dom:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
+      react-konva:
+        specifier: ^18.2.10
+        version: 18.2.16(@types/react@18.3.29)(konva@9.3.22)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       tsup:
         specifier: ^8.4.0
         version: 8.5.1(postcss@8.5.15)(typescript@5.9.3)
+      zustand:
+        specifier: ^5.0.5
+        version: 5.0.13(@types/react@18.3.29)(react@18.3.1)
 
   packages/plugins/narrator:
-    dependencies:
+    devDependencies:
       '@quest-editor/core':
         specifier: workspace:*
         version: link:../../core
       '@quest-editor/editor':
         specifier: workspace:*
         version: link:../../editor
-    devDependencies:
       '@types/react':
         specifier: ^18.3.18
         version: 18.3.29
@@ -115,14 +114,13 @@ importers:
         version: 8.5.1(postcss@8.5.15)(typescript@5.9.3)
 
   packages/plugins/reinforcements:
-    dependencies:
+    devDependencies:
       '@quest-editor/core':
         specifier: workspace:*
         version: link:../../core
       '@quest-editor/editor':
         specifier: workspace:*
         version: link:../../editor
-    devDependencies:
       '@types/react':
         specifier: ^18.3.18
         version: 18.3.29
@@ -134,14 +132,13 @@ importers:
         version: 8.5.1(postcss@8.5.15)(typescript@5.9.3)
 
   packages/plugins/remix:
-    dependencies:
+    devDependencies:
       '@quest-editor/core':
         specifier: workspace:*
         version: link:../../core
       '@quest-editor/editor':
         specifier: workspace:*
         version: link:../../editor
-    devDependencies:
       '@types/react':
         specifier: ^18.3.18
         version: 18.3.29
@@ -153,14 +150,13 @@ importers:
         version: 8.5.1(postcss@8.5.15)(typescript@5.9.3)
 
   packages/plugins/strategist:
-    dependencies:
+    devDependencies:
       '@quest-editor/core':
         specifier: workspace:*
         version: link:../../core
       '@quest-editor/editor':
         specifier: workspace:*
         version: link:../../editor
-    devDependencies:
       '@types/react':
         specifier: ^18.3.18
         version: 18.3.29
