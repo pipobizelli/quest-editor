@@ -13,6 +13,7 @@ export function createQuest(partial?: Partial<Quest>): Quest {
     disabledTiles: partial?.disabledTiles ?? [],
     notes: partial?.notes,
     narrations: partial?.narrations,
+    source: partial?.source,
   }
 }
 

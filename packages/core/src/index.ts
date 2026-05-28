@@ -7,6 +7,7 @@ export type {
   Room,
   WallSegment,
   BoardLayout,
+  QuestSource,
   Quest,
 } from './types'
 

@@ -59,6 +59,12 @@ export interface BoardLayout {
   walls: WallSegment[]
 }
 
+export interface QuestSource {
+  book: string
+  questNumber?: number
+  author?: string
+}
+
 export interface Quest {
   id: string
   name: string
@@ -69,6 +75,7 @@ export interface Quest {
   disabledTiles?: Position[]
   notes?: string
   narrations?: Record<string, string>
+  source?: QuestSource
 }
 
 export const DEFAULT_BOARD: BoardConfig = {
