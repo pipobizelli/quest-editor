@@ -34,6 +34,10 @@ export interface QuestEditorHandle {
   undo: () => void
   redo: () => void
   setMode: (mode: 'edit' | 'play') => void
+  /** Reveal a room group programmatically (play mode only). Emits room:revealed. */
+  revealRoom: (groupId: string) => void
+  /** Currently revealed room groups — lets a host persist/restore fog state. */
+  getRevealedGroups: () => string[]
 }
 
 const PANEL_WIDTH = 220
@@ -96,6 +100,8 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
     undo: () => store.getState().undo(),
     redo: () => store.getState().redo(),
     setMode: (m) => store.getState().setMode(m),
+    revealRoom: (groupId) => store.getState().revealRoom(groupId),
+    getRevealedGroups: () => Array.from(store.getState().revealedGroups),
   }), [store])
 
   const stageRef = useRef<Konva.Stage>(null)
