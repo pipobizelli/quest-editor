@@ -219,6 +219,8 @@ function handleEvent(event: EditorEvent) {
 | `quest:loaded` | `quest` | Quest loaded, imported, or set by plugin |
 | `quest:undo` | `quest` | Undo performed |
 | `quest:redo` | `quest` | Redo performed |
+| `room:revealed` | `groupId` | Room group revealed in play mode (door click / `revealRoom`) |
+| `monster:killed` | `element` | **Play mode**: a monster was clicked. Intercept hook — the editor does NOT remove it; the host reacts (e.g. a "who killed it?" modal) and removes via `handle.removeElement(id)` |
 | `plugin:event` | `pluginId`, `action`, `data` | Custom event from a plugin |
 
 Plugins can emit custom events via the `emit` function in `PluginPanelProps`:

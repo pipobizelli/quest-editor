@@ -40,9 +40,10 @@ function App() {
 - **Lock system**: `lock()` / `unlock()` API for plugins
 - **Fog of War**: Play mode with room reveal via door clicks and corridor ray-cast
 - **Validation**: Real-time error/warning panel
-- **Events**: `onEvent` callback for tracking element changes, quest loads, room reveals
+- **Events**: `onEvent` callback for tracking element changes, quest loads, room reveals, and the play-mode `monster:killed` hook
+- **Play-mode hooks**: Clicking a monster in play mode fires `monster:killed` (intercept — the editor does not remove it); the host removes via `removeElement`
 - **Plugin system**: Extensible panel sections via `EditorPlugin` interface
-- **Ref API**: `QuestEditorHandle` with `lock`, `unlock`, `undo`, `redo`, `setMode`
+- **Ref API**: `QuestEditorHandle` with `lock`, `unlock`, `undo`, `redo`, `setMode`, `revealRoom`, `getRevealedGroups`, `removeElement`
 
 ## Peer Dependencies
 
