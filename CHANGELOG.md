@@ -6,6 +6,14 @@ versions are tracked per package. Format loosely follows
 
 ## `@quest-editor/editor`
 
+### 0.1.5 — 2026-06-13
+
+#### Changed
+- **Play-mode kill/disarm is now a delete gesture, not a click.** Clicking a monster
+  or discovered trap in play mode now **selects** it (selection is shown in play mode);
+  pressing **Delete/Backspace** fires `monster:killed` / `trap:disarmed`. Clicking no
+  longer fires the hook directly. The events are unchanged, so hosts need no changes.
+
 ### 0.1.4 — 2026-06-13
 
 #### Added

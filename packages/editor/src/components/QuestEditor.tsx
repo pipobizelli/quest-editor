@@ -267,6 +267,21 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         const state = store.getState()
+        if (state.mode === 'play') {
+          // Play mode: Delete on a selected monster/trap fires the intercept hook
+          // (kill / disarm) instead of removing it — the host resolves and removes.
+          const id = state.selectedElementId
+          if (!id) return
+          const el = state.quest.elements.find((x) => x.id === id)
+          if (el?.type === 'monster') {
+            e.preventDefault()
+            state.killMonster(id)
+          } else if (el?.type === 'trap') {
+            e.preventDefault()
+            state.disarmTrap(id)
+          }
+          return
+        }
         if (state.selectedElementId || state.selectedElementIds.length > 0) {
           e.preventDefault()
           state.removeSelected()
@@ -342,18 +357,18 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
           for (const groupId of groups) {
             revealRoom(groupId)
           }
-        } else if (el?.type === 'monster') {
-          // Fire the kill hook — host opens its modal and removes via the handle.
-          store.getState().killMonster(id)
-        } else if (el?.type === 'trap') {
-          // Discovered trap clicked — fire the disarm intercept hook (no-op if not yet found).
-          store.getState().disarmTrap(id)
+          return
+        }
+        // Monsters and discovered traps: select them so the Zargon can press
+        // Delete/Backspace to kill / disarm (which fires the intercept hook).
+        if (el?.type === 'monster' || el?.type === 'trap') {
+          selectElement(id)
         }
         return
       }
       selectElement(id)
     },
-    [mode, quest, selectElement, revealRoom, store],
+    [mode, quest, selectElement, revealRoom],
   )
 
   // Mouse down: start drag rect for disable or select
@@ -567,7 +582,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
                     key={el.id}
                     element={el}
                     board={quest.board}
-                    isSelected={mode === 'edit' && selectedElementIds.includes(el.id)}
+                    isSelected={selectedElementIds.includes(el.id)}
                     onSelect={handleElementSelect}
                     onDragEnd={handleDragEnd}
                   />
