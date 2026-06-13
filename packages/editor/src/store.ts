@@ -72,6 +72,8 @@ export interface EditorState {
   searchRoom: (groupId: string, kind: 'treasure' | 'traps' | 'secret') => void
   /** Play-mode hook: emit `trap:disarmed` for a discovered trap without removing. Host attributes it and calls removeElement. */
   disarmTrap: (id: string) => void
+  /** Play-mode: emit `room:activated` for a revealed room (host opens its search menu). */
+  activateRoom: (groupId: string) => void
   revealRoom: (groupId: string) => void
   revealCorridor: (x: number, y: number) => void
   resetFog: () => void
@@ -369,6 +371,12 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
       if (!s.discoveredElements.has(id)) return
       // Intercept: host attributes the disarm and removes via removeElement.
       emitEvent({ type: 'trap:disarmed', element: el })
+    },
+    activateRoom: (groupId) => {
+      const s = get()
+      if (s.mode !== 'play') return
+      if (!s.revealedGroups.has(groupId)) return
+      emitEvent({ type: 'room:activated', groupId })
     },
     revealRoom: (groupId) => {
       const s = get()

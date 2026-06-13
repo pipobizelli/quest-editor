@@ -6,6 +6,13 @@ versions are tracked per package. Format loosely follows
 
 ## `@quest-editor/editor`
 
+### 0.1.4 — 2026-06-13
+
+#### Added
+- `room:activated` event — clicking a revealed room's floor in play mode emits it
+  (with `groupId`), so a host can open a search menu for that room and then call
+  `searchRoom`. Fires only for already-revealed rooms.
+
 ### 0.1.3 — 2026-06-13
 
 #### Added

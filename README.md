@@ -221,6 +221,7 @@ function handleEvent(event: EditorEvent) {
 | `quest:redo` | `quest` | Redo performed |
 | `room:revealed` | `groupId` | Room group revealed in play mode (door click / `revealRoom`) |
 | `monster:killed` | `element` | **Play mode**: a monster was clicked. Intercept hook — the editor does NOT remove it; the host reacts (e.g. a "who killed it?" modal) and removes via `handle.removeElement(id)` |
+| `room:activated` | `groupId` | **Play mode**: a revealed room's floor was clicked — host can open a search menu and call `searchRoom` |
 | `search:treasure` | `groupId` | **Play mode**: `searchRoom(groupId, 'treasure')` — abstract (no board element); host resolves from the treasure deck/notes |
 | `search:traps` | `groupId`, `found` | **Play mode**: `searchRoom(groupId, 'traps')` revealed any hidden room traps; `found` lists them (empty = none there) |
 | `search:secret` | `groupId`, `found` | **Play mode**: `searchRoom(groupId, 'secret')` revealed any hidden secret doors |

@@ -10,6 +10,9 @@ export type EditorEvent =
   | { type: 'quest:undo'; quest: Quest }
   | { type: 'quest:redo'; quest: Quest }
   | { type: 'room:revealed'; groupId: string }
+  // Play-mode: a revealed room's floor was clicked. Lets a host open a search menu
+  // for that room (then call `searchRoom(groupId, kind)`). Fires only for revealed rooms.
+  | { type: 'room:activated'; groupId: string }
   // Play-mode hook: fired when a monster is clicked in play mode. The editor does
   // NOT remove it — the host resolves who killed it (e.g. via a modal) and then
   // calls `removeElement(element.id)` on the QuestEditorHandle to take it off the board.

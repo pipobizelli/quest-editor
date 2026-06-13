@@ -430,12 +430,19 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
       if (e.target !== e.target.getStage()) return
       const tile = pointerToTile()
       if (!tile) return
-      // Only reveal corridor tiles (not inside rooms — rooms are revealed by doors)
+      // Corridor tile → reveal it; room floor → activate the room (host opens search menu)
       if (!isTileInRoom(quest, tile.x, tile.y)) {
         revealCorridor(tile.x, tile.y)
+      } else {
+        for (const g of roomGroups) {
+          if (g.rooms.some((r) => tile.x >= r.x && tile.x < r.x + r.width && tile.y >= r.y && tile.y < r.y + r.height)) {
+            store.getState().activateRoom(g.id)
+            break
+          }
+        }
       }
     },
-    [quest, pointerToTile, revealCorridor],
+    [quest, pointerToTile, revealCorridor, roomGroups, store],
   )
 
   const handleStageClick = useCallback(

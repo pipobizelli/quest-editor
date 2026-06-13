@@ -99,6 +99,23 @@ describe('play-mode search hooks', () => {
     expect(store.getState().quest.elements).toContainEqual(trap)
   })
 
+  it('activateRoom emits room:activated only for a revealed room in play mode', () => {
+    const handler = vi.fn()
+    const { quest } = searchQuest()
+    const store = createEditorStore(quest, handler)
+    store.getState().setMode('play')
+    handler.mockClear()
+
+    // Not revealed yet — no-op.
+    store.getState().activateRoom('r1')
+    expect(handler.mock.calls.some(([e]: [EditorEvent]) => e.type === 'room:activated')).toBe(false)
+
+    store.getState().revealRoom('r1')
+    handler.mockClear()
+    store.getState().activateRoom('r1')
+    expect(handler).toHaveBeenCalledWith({ type: 'room:activated', groupId: 'r1' })
+  })
+
   it('resets discovery when leaving play mode', () => {
     const { quest } = searchQuest()
     const store = createEditorStore(quest)
