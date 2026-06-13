@@ -135,6 +135,47 @@ describe('editor events', () => {
     )
   })
 
+  it('emits monster:killed on killMonster in play mode without removing', () => {
+    const handler = vi.fn()
+    const store = createEditorStore(undefined, handler)
+    const goblin = createElement('monster', 'goblin', 5, 3)
+    store.getState().addElement(goblin)
+    store.getState().setMode('play')
+    handler.mockClear()
+
+    store.getState().killMonster(goblin.id)
+
+    expect(handler).toHaveBeenCalledWith({ type: 'monster:killed', element: goblin })
+    // Intercept semantics: monster stays on the board until the host removes it
+    expect(store.getState().quest.elements).toContainEqual(goblin)
+  })
+
+  it('killMonster is a no-op outside play mode', () => {
+    const handler = vi.fn()
+    const store = createEditorStore(undefined, handler)
+    const goblin = createElement('monster', 'goblin', 5, 3)
+    store.getState().addElement(goblin)
+    handler.mockClear()
+
+    store.getState().killMonster(goblin.id)
+
+    expect(handler).not.toHaveBeenCalled()
+  })
+
+  it('killMonster ignores non-monster elements', () => {
+    const handler = vi.fn()
+    const store = createEditorStore(undefined, handler)
+    const block = createElement('furniture', 'block', 5, 3)
+    store.getState().addElement(block)
+    store.getState().setMode('play')
+    handler.mockClear()
+
+    store.getState().killMonster(block.id)
+
+    const killed = handler.mock.calls.filter(([e]: [EditorEvent]) => e.type === 'monster:killed')
+    expect(killed).toHaveLength(0)
+  })
+
   it('does not emit when locked', () => {
     const handler = vi.fn()
     const store = createEditorStore(undefined, handler)

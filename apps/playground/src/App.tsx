@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { QuestEditor, THEMES, type LLMProvider, type QuestEditorHandle } from '@quest-editor/editor'
+import { QuestEditor, THEMES, type LLMProvider, type QuestEditorHandle, type EditorEvent } from '@quest-editor/editor'
+import type { QuestElement } from '@quest-editor/core'
 import { NarratorPlugin } from '@quest-editor/plugin-narrator'
 import { StrategistPlugin } from '@quest-editor/plugin-strategist'
 import { ReinforcementsPlugin } from '@quest-editor/plugin-reinforcements'
@@ -30,6 +31,25 @@ export function App() {
   const [showLabels, setShowLabels] = useState(true)
   const [showRoomIds, setShowRoomIds] = useState(false)
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('narrator-api-key') ?? '')
+
+  // Demo of the play-mode kill hook — the tracker would wire this to its own modal.
+  const [killTarget, setKillTarget] = useState<QuestElement | null>(null)
+  const [killLog, setKillLog] = useState<string[]>([])
+
+  const handleEvent = useCallback((event: EditorEvent) => {
+    if (event.type === 'monster:killed') {
+      // Intercept: open the modal. The monster stays on the board until we confirm.
+      setKillTarget(event.element)
+    }
+  }, [])
+
+  const HEROES = ['Barbarian', 'Dwarf', 'Elf', 'Wizard']
+  const confirmKill = useCallback((hero: string) => {
+    if (!killTarget) return
+    setKillLog((log) => [`${hero} killed ${killTarget.subtype}`, ...log])
+    editorRef.current?.removeElement(killTarget.id)
+    setKillTarget(null)
+  }, [killTarget])
 
   const llmProvider = useMemo<LLMProvider | undefined>(() => {
     if (!apiKey) return undefined
@@ -162,6 +182,7 @@ export function App() {
         ref={editorRef}
         quest={quest}
         onChange={setQuest}
+        onEvent={handleEvent}
         width={window.innerWidth - 32}
         height={window.innerHeight - 200}
         theme={themeId}
@@ -170,6 +191,43 @@ export function App() {
         plugins={plugins}
         llmProvider={llmProvider}
       />
+
+      {killLog.length > 0 && (
+        <div style={{ marginTop: 12, color: theme.panelText, fontSize: 13 }}>
+          <strong>Kill log:</strong> {killLog.join(' · ')}
+        </div>
+      )}
+
+      {killTarget && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
+          }}
+          onClick={() => setKillTarget(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: theme.btnBg, color: theme.panelText, padding: 24,
+              borderRadius: 10, minWidth: 280, border: `1px solid ${theme.btnBorder}`,
+            }}
+          >
+            <h3 style={{ margin: '0 0 12px' }}>Quem matou o {killTarget.subtype}?</h3>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {HEROES.map((hero) => (
+                <button
+                  key={hero}
+                  onClick={() => confirmKill(hero)}
+                  style={{ ...btnStyle, background: theme.canvasBg, color: theme.panelText, borderColor: theme.btnBorder }}
+                >
+                  {hero}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -38,6 +38,8 @@ export interface QuestEditorHandle {
   revealRoom: (groupId: string) => void
   /** Currently revealed room groups — lets a host persist/restore fog state. */
   getRevealedGroups: () => string[]
+  /** Remove an element by id. Used by hosts to take a killed monster off the board after a play-mode hook. */
+  removeElement: (id: string) => void
 }
 
 const PANEL_WIDTH = 220
@@ -102,6 +104,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
     setMode: (m) => store.getState().setMode(m),
     revealRoom: (groupId) => store.getState().revealRoom(groupId),
     getRevealedGroups: () => Array.from(store.getState().revealedGroups),
+    removeElement: (id) => store.getState().removeElement(id),
   }), [store])
 
   const stageRef = useRef<Konva.Stage>(null)
@@ -329,12 +332,15 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
           for (const groupId of groups) {
             revealRoom(groupId)
           }
+        } else if (el?.type === 'monster') {
+          // Fire the kill hook — host opens its modal and removes via the handle.
+          store.getState().killMonster(id)
         }
         return
       }
       selectElement(id)
     },
-    [mode, quest, selectElement, revealRoom],
+    [mode, quest, selectElement, revealRoom, store],
   )
 
   // Mouse down: start drag rect for disable or select

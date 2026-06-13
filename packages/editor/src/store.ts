@@ -64,6 +64,8 @@ export interface EditorState {
   undo: () => void
   redo: () => void
   setMode: (mode: 'edit' | 'play') => void
+  /** Play-mode hook: emit `monster:killed` without removing. Host resolves the kill and calls removeElement. */
+  killMonster: (id: string) => void
   revealRoom: (groupId: string) => void
   revealCorridor: (x: number, y: number) => void
   resetFog: () => void
@@ -312,6 +314,15 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
       } else {
         set({ mode, revealedGroups: new Set<string>(), revealedTiles: new Set<string>() })
       }
+    },
+    killMonster: (id) => {
+      const s = get()
+      if (s.mode !== 'play' || s.locked) return
+      const el = s.quest.elements.find((e) => e.id === id)
+      if (!el || el.type !== 'monster') return
+      // Intercept semantics: do NOT remove here. The host opens its modal and,
+      // once the killer is recorded, calls removeElement(id) via the handle.
+      emitEvent({ type: 'monster:killed', element: el })
     },
     revealRoom: (groupId) => {
       const s = get()

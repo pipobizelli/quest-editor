@@ -37,6 +37,7 @@ pnpm test:run     # Run tests once
 - **Plugin props**: `PluginPanelProps` includes `quest`, `onUpdateQuest`, `llmProvider`, `lock`, `unlock`, `locked`, `emit`.
 - **Undo/Redo**: History stack (max 50) in Zustand store. All quest-mutating actions push to history. Cmd+Z / Cmd+Shift+Z keyboard shortcuts. Exposed via `QuestEditorHandle`.
 - **Events**: `onEvent` prop on QuestEditor. Store emits events for element add/remove/move/update/rotate, quest load/undo/redo. Plugins emit custom events via `emit(action, data)`.
+- **Play-mode hooks**: In play mode, clicking a monster fires `monster:killed` (carries the element) — an **intercept** hook: the editor does NOT remove it. The host reacts (e.g. opens a "who killed it?" modal) and then removes via `handle.removeElement(id)`. Adding a new play hook = new `EditorEvent` variant + a trigger in `QuestEditor`/store. See the `apps/playground` App for a reference host implementation.
 - **Validation**: `validateQuest()` in core returns errors/warnings. Real-time display in editor panel.
 - **Grouped rooms**: L-shaped rooms share a `group` field. `getGroupedRooms()` combines them. Narrator generates one narration per group.
 - **Multi-tile elements**: `getElementsByRoom` uses AABB overlap, not just origin position.
@@ -61,7 +62,7 @@ pnpm test:run     # Run tests once
 
 ## Testing
 
-- 200 tests across 15 files. Run with `pnpm test:run`.
+- 225 tests across 17 files. Run with `pnpm test:run`.
 - Vitest workspace config includes: `packages/core`, `packages/editor`, and all 4 plugin packages.
 - Core: quest, serialization, board-layout, rooms, validate
 - Editor: store, lock, undo-redo, events

@@ -10,6 +10,10 @@ export type EditorEvent =
   | { type: 'quest:undo'; quest: Quest }
   | { type: 'quest:redo'; quest: Quest }
   | { type: 'room:revealed'; groupId: string }
+  // Play-mode hook: fired when a monster is clicked in play mode. The editor does
+  // NOT remove it — the host resolves who killed it (e.g. via a modal) and then
+  // calls `removeElement(element.id)` on the QuestEditorHandle to take it off the board.
+  | { type: 'monster:killed'; element: QuestElement }
   | { type: 'plugin:event'; pluginId: string; action: string; data?: unknown }
 
 export type EventEmitter = (event: EditorEvent) => void
