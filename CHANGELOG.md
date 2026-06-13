@@ -6,6 +6,18 @@ versions are tracked per package. Format loosely follows
 
 ## `@quest-editor/editor`
 
+### 0.1.3 — 2026-06-13
+
+#### Added
+- **Play-mode discovery layer + search hooks.** Room traps and secret doors now
+  stay hidden in play mode even after their room is revealed — they're found only
+  by searching (corridor traps are unchanged, revealed with the corridor tile).
+- `QuestEditorHandle.searchRoom(groupId, 'treasure' | 'traps' | 'secret')` — reveals
+  matching hidden elements and emits `search:traps` / `search:secret` with a `found`
+  array, or `search:treasure` (abstract — no board element).
+- `trap:disarmed` intercept hook — clicking a discovered trap emits it without
+  removing; the host attributes the disarm and removes via `removeElement`.
+
 ### 0.1.2 — 2026-06-12
 
 #### Added

@@ -40,6 +40,8 @@ export interface QuestEditorHandle {
   getRevealedGroups: () => string[]
   /** Remove an element by id. Used by hosts to take a killed monster off the board after a play-mode hook. */
   removeElement: (id: string) => void
+  /** Play mode: search a room group. Reveals found traps/secret doors and emits the matching `search:*` event. */
+  searchRoom: (groupId: string, kind: 'treasure' | 'traps' | 'secret') => void
 }
 
 const PANEL_WIDTH = 220
@@ -91,6 +93,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
   const mode = useStore(store, (s) => s.mode)
   const revealedGroups = useStore(store, (s) => s.revealedGroups)
   const revealedTiles = useStore(store, (s) => s.revealedTiles)
+  const discoveredElements = useStore(store, (s) => s.discoveredElements)
   const setMode = useStore(store, (s) => s.setMode)
   const revealRoom = useStore(store, (s) => s.revealRoom)
   const revealCorridor = useStore(store, (s) => s.revealCorridor)
@@ -105,6 +108,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
     revealRoom: (groupId) => store.getState().revealRoom(groupId),
     getRevealedGroups: () => Array.from(store.getState().revealedGroups),
     removeElement: (id) => store.getState().removeElement(id),
+    searchRoom: (groupId, kind) => store.getState().searchRoom(groupId, kind),
   }), [store])
 
   const stageRef = useRef<Konva.Stage>(null)
@@ -191,12 +195,18 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
     const map = new Map<ElementType, QuestElement[]>()
     for (const el of quest.elements) {
       if (mode === 'play') {
-        // Always show doors, markers, and structural blocks
-        if (el.type === 'door' || el.type === 'marker') { /* visible */ }
+        const groupId = elementGroupMap?.get(el.id)
+        const isSecretDoor = el.type === 'door' && el.subtype === 'secret'
+        // Secret doors and ROOM traps are found by searching — hidden until discovered,
+        // even after the room is revealed. (Corridor traps fall through to tile-reveal below.)
+        if (isSecretDoor || (el.type === 'trap' && groupId)) {
+          if (!discoveredElements.has(el.id)) continue
+        }
+        // Normal doors, markers, and structural blocks are always visible
+        else if (el.type === 'door' || el.type === 'marker') { /* visible */ }
         else if (el.type === 'furniture' && (el.subtype === 'block' || el.subtype === 'doubleblock')) { /* visible */ }
         // All other elements: only visible in revealed areas
         else {
-          const groupId = elementGroupMap?.get(el.id)
           // In a room — check if room group is revealed
           if (groupId && !revealedGroups.has(groupId)) continue
           // In a corridor — check if tile is revealed
@@ -208,7 +218,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
       map.set(el.type, list)
     }
     return map
-  }, [quest.elements, mode, elementGroupMap, revealedGroups, revealedTiles])
+  }, [quest.elements, mode, elementGroupMap, revealedGroups, revealedTiles, discoveredElements])
 
   // Sync external quest into store (only when it actually changes from outside)
   const lastExternalQuestRef = useRef(externalQuest)
@@ -335,6 +345,9 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
         } else if (el?.type === 'monster') {
           // Fire the kill hook — host opens its modal and removes via the handle.
           store.getState().killMonster(id)
+        } else if (el?.type === 'trap') {
+          // Discovered trap clicked — fire the disarm intercept hook (no-op if not yet found).
+          store.getState().disarmTrap(id)
         }
         return
       }

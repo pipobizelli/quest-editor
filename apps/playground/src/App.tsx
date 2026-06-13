@@ -43,6 +43,11 @@ export function App() {
     }
   }, [])
 
+  // Dev aid: expose the editor handle for E2E checks (mirrors the tracker's __liveBoard).
+  useEffect(() => {
+    if (import.meta.env.DEV) (window as unknown as { __quest?: QuestEditorHandle }).__quest = editorRef.current
+  })
+
   const HEROES = ['Barbarian', 'Dwarf', 'Elf', 'Wizard']
   const confirmKill = useCallback((hero: string) => {
     if (!killTarget) return

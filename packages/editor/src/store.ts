@@ -9,7 +9,7 @@ import {
   toggleTile,
   toggleTilesRect,
 } from '@quest-editor/core'
-import { revealCorridorTiles, getStairwayTiles, parseTileKey } from '@quest-editor/core'
+import { revealCorridorTiles, getStairwayTiles, parseTileKey, getGroupedRooms, getElementsByRooms } from '@quest-editor/core'
 import type { EventEmitter } from './events'
 
 function normalizeRotation(deg: number): number {
@@ -36,6 +36,8 @@ export interface EditorState {
   mode: 'edit' | 'play'
   revealedGroups: Set<string>
   revealedTiles: Set<string>
+  /** Play-mode discovery: ids of room traps & secret doors found via search. */
+  discoveredElements: Set<string>
 
   // History
   _history: Quest[]
@@ -66,6 +68,10 @@ export interface EditorState {
   setMode: (mode: 'edit' | 'play') => void
   /** Play-mode hook: emit `monster:killed` without removing. Host resolves the kill and calls removeElement. */
   killMonster: (id: string) => void
+  /** Play-mode search: reveal hidden traps/secret doors in a room (or just emit for treasure) and emit the matching `search:*` event. */
+  searchRoom: (groupId: string, kind: 'treasure' | 'traps' | 'secret') => void
+  /** Play-mode hook: emit `trap:disarmed` for a discovered trap without removing. Host attributes it and calls removeElement. */
+  disarmTrap: (id: string) => void
   revealRoom: (groupId: string) => void
   revealCorridor: (x: number, y: number) => void
   resetFog: () => void
@@ -99,6 +105,7 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
     mode: 'edit',
     revealedGroups: new Set<string>(),
     revealedTiles: new Set<string>(),
+    discoveredElements: new Set<string>(),
     _history: [],
     _future: [],
     canUndo: false,
@@ -306,13 +313,14 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
           mode,
           revealedGroups: new Set<string>(),
           revealedTiles: initialTiles,
+          discoveredElements: new Set<string>(),
           selectedElementId: null,
           selectedElementIds: [],
           placingEntry: null,
           tool: 'select',
         })
       } else {
-        set({ mode, revealedGroups: new Set<string>(), revealedTiles: new Set<string>() })
+        set({ mode, revealedGroups: new Set<string>(), revealedTiles: new Set<string>(), discoveredElements: new Set<string>() })
       }
     },
     killMonster: (id) => {
@@ -323,6 +331,44 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
       // Intercept semantics: do NOT remove here. The host opens its modal and,
       // once the killer is recorded, calls removeElement(id) via the handle.
       emitEvent({ type: 'monster:killed', element: el })
+    },
+    searchRoom: (groupId, kind) => {
+      const s = get()
+      if (s.mode !== 'play') return
+      if (kind === 'treasure') {
+        // Abstract — no board element. Host resolves from the treasure deck/notes.
+        emitEvent({ type: 'search:treasure', groupId })
+        return
+      }
+      const group = getGroupedRooms(s.quest).find((g) => g.id === groupId)
+      const inRoom = group ? getElementsByRooms(s.quest, group.rooms) : []
+      const matches = inRoom.filter((el) =>
+        kind === 'traps'
+          ? el.type === 'trap'
+          : el.type === 'door' && el.subtype === 'secret',
+      )
+      // Reveal the newly-found ones; emit ALL matches (so a re-search still reports them).
+      const fresh = matches.filter((el) => !s.discoveredElements.has(el.id))
+      if (fresh.length > 0) {
+        const next = new Set(s.discoveredElements)
+        for (const el of fresh) next.add(el.id)
+        set({ discoveredElements: next })
+      }
+      emitEvent(
+        kind === 'traps'
+          ? { type: 'search:traps', groupId, found: matches }
+          : { type: 'search:secret', groupId, found: matches },
+      )
+    },
+    disarmTrap: (id) => {
+      const s = get()
+      if (s.mode !== 'play' || s.locked) return
+      const el = s.quest.elements.find((e) => e.id === id)
+      if (!el || el.type !== 'trap') return
+      // Only a discovered (revealed) trap can be disarmed.
+      if (!s.discoveredElements.has(id)) return
+      // Intercept: host attributes the disarm and removes via removeElement.
+      emitEvent({ type: 'trap:disarmed', element: el })
     },
     revealRoom: (groupId) => {
       const s = get()
