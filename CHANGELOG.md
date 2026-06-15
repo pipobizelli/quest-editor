@@ -26,6 +26,11 @@ versions are tracked per package. Format loosely follows
 - **Reveal follows hero placement, not the stairway.** Entering play mode no longer auto-reveals
   the stairway/its room (the stairway isn't always the start — it can be the objective). Instead,
   placing a hero reveals its room, or (in a corridor) its tile + line-of-sight corridors.
+- **Search is right-click, and works in corridors.** Right-clicking a revealed tile in play mode
+  emits `search:requested` ({groupId} for a room, {x,y} for a corridor) so the host opens a search
+  menu. `searchRoom(groupId, kind)` / new `searchCorridor(x, y, kind)` reveal traps/secret doors
+  and **return the count** (no longer emit `search:*`). Replaces the old left-click `room:activated`
+  trigger and the `search:treasure/traps/secret` events; treasure is now host-only (room search).
 
 ### 0.1.5 — 2026-06-13
 

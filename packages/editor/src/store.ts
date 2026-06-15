@@ -129,12 +129,14 @@ export interface EditorState {
   setMode: (mode: 'edit' | 'play') => void
   /** Play-mode hook: emit `monster:killed` without removing. Host resolves the kill and calls removeElement. */
   killMonster: (id: string) => void
-  /** Play-mode search: reveal hidden traps/secret doors in a room (or just emit for treasure) and emit the matching `search:*` event. */
-  searchRoom: (groupId: string, kind: 'treasure' | 'traps' | 'secret') => void
+  /** Play-mode search: reveal hidden traps/secret doors in a room; returns how many were found. */
+  searchRoom: (groupId: string, kind: 'traps' | 'secret') => number
+  /** Play-mode search: reveal hidden traps/secret doors in the corridor section around (x,y); returns how many were found. */
+  searchCorridor: (x: number, y: number, kind: 'traps' | 'secret') => number
   /** Play-mode hook: emit `trap:disarmed` for a discovered trap without removing. Host attributes it and calls removeElement. */
   disarmTrap: (id: string) => void
-  /** Play-mode: emit `room:activated` for a revealed room (host opens its search menu). */
-  activateRoom: (groupId: string) => void
+  /** Play-mode: right-click a revealed tile to search — emits `search:requested` (room or corridor). */
+  requestSearch: (x: number, y: number) => void
   /** Play-mode: place a party. Auto-places around the stairway, or (no stairway / opts.manual) clears any placed heroes and enters click-to-place. */
   placeHeroes: (heroes: HeroToken[], opts?: { manual?: boolean }) => void
   /** Play-mode: drop the next queued hero at a tile (click-to-place flow). */
@@ -399,31 +401,33 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
     },
     searchRoom: (groupId, kind) => {
       const s = get()
-      if (s.mode !== 'play') return
-      if (kind === 'treasure') {
-        // Abstract — no board element. Host resolves from the treasure deck/notes.
-        emitEvent({ type: 'search:treasure', groupId })
-        return
-      }
+      if (s.mode !== 'play') return 0
       const group = getGroupedRooms(s.quest).find((g) => g.id === groupId)
       const inRoom = group ? getElementsByRooms(s.quest, group.rooms) : []
       const matches = inRoom.filter((el) =>
-        kind === 'traps'
-          ? el.type === 'trap'
-          : el.type === 'door' && el.subtype === 'secret',
+        kind === 'traps' ? el.type === 'trap' : el.type === 'door' && el.subtype === 'secret',
       )
-      // Reveal the newly-found ones; emit ALL matches (so a re-search still reports them).
-      const fresh = matches.filter((el) => !s.discoveredElements.has(el.id))
-      if (fresh.length > 0) {
-        const next = new Set(s.discoveredElements)
-        for (const el of fresh) next.add(el.id)
-        set({ discoveredElements: next })
-      }
-      emitEvent(
-        kind === 'traps'
-          ? { type: 'search:traps', groupId, found: matches }
-          : { type: 'search:secret', groupId, found: matches },
-      )
+      const freshR = matches.filter((el) => !s.discoveredElements.has(el.id))
+      if (freshR.length > 0) set({ discoveredElements: new Set([...s.discoveredElements, ...freshR.map((el) => el.id)]) })
+      return matches.length
+    },
+    searchCorridor: (x, y, kind) => {
+      const s = get()
+      if (s.mode !== 'play') return 0
+      // The corridor "section" = the tile + corridors in line of sight.
+      const tiles = new Set<string>([tileKey(x, y), ...revealCorridorTiles(s.quest, x, y)])
+      const matches = s.quest.elements.filter((el) => {
+        if (kind === 'traps') return el.type === 'trap' && tiles.has(tileKey(el.position.x, el.position.y))
+        if (el.type !== 'door' || el.subtype !== 'secret') return false
+        // A door borders a corridor tile if its own tile or its far edge tile is in the section.
+        const far = el.orientation === 'vertical'
+          ? tileKey(el.position.x + 1, el.position.y)
+          : tileKey(el.position.x, el.position.y + 1)
+        return tiles.has(tileKey(el.position.x, el.position.y)) || tiles.has(far)
+      })
+      const freshC = matches.filter((el) => !s.discoveredElements.has(el.id))
+      if (freshC.length > 0) set({ discoveredElements: new Set([...s.discoveredElements, ...freshC.map((el) => el.id)]) })
+      return matches.length
     },
     disarmTrap: (id) => {
       const s = get()
@@ -435,11 +439,18 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
       // Intercept: host attributes the disarm and removes via removeElement.
       emitEvent({ type: 'trap:disarmed', element: el })
     },
-    activateRoom: (groupId) => {
+    requestSearch: (x, y) => {
       const s = get()
       if (s.mode !== 'play') return
-      if (!s.revealedGroups.has(groupId)) return
-      emitEvent({ type: 'room:activated', groupId })
+      // Room? Only searchable once revealed.
+      for (const g of getGroupedRooms(s.quest)) {
+        if (g.rooms.some((r) => x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height)) {
+          if (s.revealedGroups.has(g.id)) emitEvent({ type: 'search:requested', groupId: g.id, x, y })
+          return
+        }
+      }
+      // Corridor — only searchable once the tile is revealed.
+      if (s.revealedTiles.has(tileKey(x, y))) emitEvent({ type: 'search:requested', groupId: null, x, y })
     },
     placeHeroes: (heroes, opts) => {
       const s = get()

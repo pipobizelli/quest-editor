@@ -16,71 +16,69 @@ function searchQuest() {
   return { quest, trap, secret }
 }
 
-describe('play-mode search hooks', () => {
-  it('search:traps reveals room traps and reports what was found', () => {
-    const handler = vi.fn()
+describe('play-mode search', () => {
+  it('searchRoom reveals room traps and returns the count', () => {
     const { quest, trap } = searchQuest()
-    const store = createEditorStore(quest, handler)
+    const store = createEditorStore(quest)
     store.getState().setMode('play')
-    handler.mockClear()
 
-    store.getState().searchRoom('r1', 'traps')
+    const n = store.getState().searchRoom('r1', 'traps')
 
+    expect(n).toBe(1)
     expect(store.getState().discoveredElements.has(trap.id)).toBe(true)
-    expect(handler).toHaveBeenCalledWith({ type: 'search:traps', groupId: 'r1', found: [trap] })
   })
 
-  it('search:secret reveals secret doors', () => {
-    const handler = vi.fn()
+  it('searchRoom reveals secret doors', () => {
     const { quest, secret } = searchQuest()
-    const store = createEditorStore(quest, handler)
+    const store = createEditorStore(quest)
     store.getState().setMode('play')
-    handler.mockClear()
 
-    store.getState().searchRoom('r1', 'secret')
-
+    expect(store.getState().searchRoom('r1', 'secret')).toBe(1)
     expect(store.getState().discoveredElements.has(secret.id)).toBe(true)
-    const evt = handler.mock.calls.map(([e]: [EditorEvent]) => e).find((e) => e.type === 'search:secret')
-    expect(evt).toEqual({ type: 'search:secret', groupId: 'r1', found: [secret] })
   })
 
-  it('search:treasure is abstract — emits without touching the board', () => {
+  it('searchRoom returns 0 for an empty room and outside play mode', () => {
+    const store = createEditorStore(
+      createQuest({ name: 'Empty', layout: { rooms: [{ id: 'r1', x: 5, y: 5, width: 3, height: 3 }], walls: [] } }),
+    )
+    expect(store.getState().searchRoom('r1', 'traps')).toBe(0) // edit mode
+    store.getState().setMode('play')
+    expect(store.getState().searchRoom('r1', 'traps')).toBe(0) // nothing there
+  })
+
+  it('searchCorridor reveals traps on the clicked corridor tile', () => {
+    const room = { id: 'r1', x: 5, y: 5, width: 3, height: 3 }
+    const corridorTrap = createElement('trap', 'pittrap', 10, 10) // outside any room
+    const store = createEditorStore(
+      createQuest({ name: 'Corridor', layout: { rooms: [room], walls: [] }, elements: [corridorTrap] }),
+    )
+    store.getState().setMode('play')
+
+    const n = store.getState().searchCorridor(10, 10, 'traps')
+
+    expect(n).toBe(1)
+    expect(store.getState().discoveredElements.has(corridorTrap.id)).toBe(true)
+  })
+
+  it('requestSearch emits search:requested only for a revealed room', () => {
     const handler = vi.fn()
     const { quest } = searchQuest()
     const store = createEditorStore(quest, handler)
     store.getState().setMode('play')
     handler.mockClear()
 
-    store.getState().searchRoom('r1', 'treasure')
+    // Room not revealed yet → no-op.
+    store.getState().requestSearch(6, 6)
+    expect(handler.mock.calls.some(([e]: [EditorEvent]) => e.type === 'search:requested')).toBe(false)
 
-    expect(store.getState().discoveredElements.size).toBe(0)
-    expect(handler).toHaveBeenCalledWith({ type: 'search:treasure', groupId: 'r1' })
-  })
-
-  it('searching an empty room reports found: [] (searched, nothing there)', () => {
-    const handler = vi.fn()
-    const store = createEditorStore(createQuest({ name: 'Empty', layout: { rooms: [{ id: 'r1', x: 5, y: 5, width: 3, height: 3 }], walls: [] } }), handler)
-    store.getState().setMode('play')
+    store.getState().revealRoom('r1')
     handler.mockClear()
+    store.getState().requestSearch(6, 6) // (6,6) is inside room r1
 
-    store.getState().searchRoom('r1', 'traps')
-
-    expect(handler).toHaveBeenCalledWith({ type: 'search:traps', groupId: 'r1', found: [] })
+    expect(handler).toHaveBeenCalledWith({ type: 'search:requested', groupId: 'r1', x: 6, y: 6 })
   })
 
-  it('searchRoom is a no-op outside play mode', () => {
-    const handler = vi.fn()
-    const { quest } = searchQuest()
-    const store = createEditorStore(quest, handler)
-    handler.mockClear()
-
-    store.getState().searchRoom('r1', 'traps')
-
-    expect(handler).not.toHaveBeenCalled()
-    expect(store.getState().discoveredElements.size).toBe(0)
-  })
-
-  it('disarmTrap emits trap:disarmed only for a discovered trap, without removing it', () => {
+  it('disarmTrap emits trap:disarmed only after the trap is found, without removing it', () => {
     const handler = vi.fn()
     const { quest, trap } = searchQuest()
     const store = createEditorStore(quest, handler)
@@ -91,29 +89,10 @@ describe('play-mode search hooks', () => {
     expect(handler.mock.calls.some(([e]: [EditorEvent]) => e.type === 'trap:disarmed')).toBe(false)
 
     store.getState().searchRoom('r1', 'traps')
-    handler.mockClear()
     store.getState().disarmTrap(trap.id)
 
     expect(handler).toHaveBeenCalledWith({ type: 'trap:disarmed', element: trap })
-    // Intercept: trap stays until the host removes it.
-    expect(store.getState().quest.elements).toContainEqual(trap)
-  })
-
-  it('activateRoom emits room:activated only for a revealed room in play mode', () => {
-    const handler = vi.fn()
-    const { quest } = searchQuest()
-    const store = createEditorStore(quest, handler)
-    store.getState().setMode('play')
-    handler.mockClear()
-
-    // Not revealed yet — no-op.
-    store.getState().activateRoom('r1')
-    expect(handler.mock.calls.some(([e]: [EditorEvent]) => e.type === 'room:activated')).toBe(false)
-
-    store.getState().revealRoom('r1')
-    handler.mockClear()
-    store.getState().activateRoom('r1')
-    expect(handler).toHaveBeenCalledWith({ type: 'room:activated', groupId: 'r1' })
+    expect(store.getState().quest.elements).toContainEqual(trap) // intercept: stays
   })
 
   it('resets discovery when leaving play mode', () => {

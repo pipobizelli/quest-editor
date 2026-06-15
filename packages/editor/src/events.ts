@@ -10,20 +10,15 @@ export type EditorEvent =
   | { type: 'quest:undo'; quest: Quest }
   | { type: 'quest:redo'; quest: Quest }
   | { type: 'room:revealed'; groupId: string }
-  // Play-mode: a revealed room's floor was clicked. Lets a host open a search menu
-  // for that room (then call `searchRoom(groupId, kind)`). Fires only for revealed rooms.
-  | { type: 'room:activated'; groupId: string }
+  // Play-mode: a revealed location was right-clicked to search it. `groupId` is the
+  // room when the tile is inside one, else null (corridor — use x,y). The host opens
+  // a search menu, then calls `searchRoom(groupId, kind)` or `searchCorridor(x, y, kind)`.
+  // Fires only for already-revealed rooms / corridor tiles.
+  | { type: 'search:requested'; groupId: string | null; x: number; y: number }
   // Play-mode hook: fired when a monster is clicked in play mode. The editor does
   // NOT remove it — the host resolves who killed it (e.g. via a modal) and then
   // calls `removeElement(element.id)` on the QuestEditorHandle to take it off the board.
   | { type: 'monster:killed'; element: QuestElement }
-  // Play-mode search hooks, fired by `searchRoom(groupId, kind)` on the handle.
-  // `treasure` is abstract (no board element — host draws from the treasure deck/notes).
-  // `traps`/`secret` reveal any matching hidden elements in the room and report what
-  // was found (empty array = searched, nothing there).
-  | { type: 'search:treasure'; groupId: string }
-  | { type: 'search:traps'; groupId: string; found: QuestElement[] }
-  | { type: 'search:secret'; groupId: string; found: QuestElement[] }
   // Play-mode intercept hook (like monster:killed): a discovered trap was clicked.
   // The editor does NOT remove it — the host attributes the disarm and removes via removeElement.
   | { type: 'trap:disarmed'; element: QuestElement }

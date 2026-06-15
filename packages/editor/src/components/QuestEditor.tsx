@@ -40,8 +40,10 @@ export interface QuestEditorHandle {
   getRevealedGroups: () => string[]
   /** Remove an element by id. Used by hosts to take a killed monster off the board after a play-mode hook. */
   removeElement: (id: string) => void
-  /** Play mode: search a room group. Reveals found traps/secret doors and emits the matching `search:*` event. */
-  searchRoom: (groupId: string, kind: 'treasure' | 'traps' | 'secret') => void
+  /** Play mode: search a room group for traps/secret doors. Reveals them; returns how many were found. */
+  searchRoom: (groupId: string, kind: 'traps' | 'secret') => number
+  /** Play mode: search the corridor section around (x,y) for traps/secret doors. Returns how many were found. */
+  searchCorridor: (x: number, y: number, kind: 'traps' | 'secret') => number
   /** Play mode: place a party — auto around the stairway, or (no stairway / opts.manual) clears placed heroes and enters click-to-place. */
   placeHeroes: (heroes: { subtype: string }[], opts?: { manual?: boolean }) => void
   /** Play mode: place a wandering monster next to a hero. Returns false if the hero isn't on the board or there's no free tile. */
@@ -114,6 +116,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
     getRevealedGroups: () => Array.from(store.getState().revealedGroups),
     removeElement: (id) => store.getState().removeElement(id),
     searchRoom: (groupId, kind) => store.getState().searchRoom(groupId, kind),
+    searchCorridor: (x, y, kind) => store.getState().searchCorridor(x, y, kind),
     placeHeroes: (heroes, opts) => store.getState().placeHeroes(heroes, opts),
     placeMonsterNearHero: (monsterSubtype, heroSubtype) => store.getState().placeMonsterNearHero(monsterSubtype, heroSubtype),
   }), [store])
@@ -471,19 +474,23 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
         for (const g of getGroupsForDoor(quest, door)) revealRoom(g)
         return
       }
-      // Corridor tile → reveal it; room floor → activate the room (host opens search menu)
+      // Corridor tile → reveal it. (Searching is on right-click; see handleContextMenu.)
       if (!isTileInRoom(quest, tile.x, tile.y)) {
         revealCorridor(tile.x, tile.y)
-      } else {
-        for (const g of roomGroups) {
-          if (g.rooms.some((r) => tile.x >= r.x && tile.x < r.x + r.width && tile.y >= r.y && tile.y < r.y + r.height)) {
-            store.getState().activateRoom(g.id)
-            break
-          }
-        }
       }
     },
-    [quest, pointerToTile, revealCorridor, revealRoom, roomGroups, store],
+    [quest, pointerToTile, revealCorridor, revealRoom, store],
+  )
+
+  // Play mode: right-click a revealed tile to search it (room or corridor).
+  const handleContextMenu = useCallback(
+    (e: Konva.KonvaEventObject<MouseEvent>) => {
+      e.evt.preventDefault()
+      const tile = pointerToTile()
+      if (!tile) return
+      store.getState().requestSearch(tile.x, tile.y)
+    },
+    [pointerToTile, store],
   )
 
   const handleStageClick = useCallback(
@@ -575,6 +582,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
           onWheel={handleWheel}
           onClick={locked ? undefined : mode === 'play' ? handlePlayClick : handleStageClick}
           onTap={locked ? undefined : mode === 'play' ? handlePlayClick : handleStageClick}
+          onContextMenu={!locked && mode === 'play' ? handleContextMenu : undefined}
           onMouseDown={(locked || mode === 'play') ? undefined : handleMouseDown}
           onMouseMove={(locked || mode === 'play') ? undefined : handleMouseMove}
           onMouseUp={(locked || mode === 'play') ? undefined : handleMouseUp}
