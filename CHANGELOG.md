@@ -17,6 +17,9 @@ versions are tracked per package. Format loosely follows
 
 #### Changed
 - Heroes are **always visible in play mode** — the party's own pieces are never fog-hidden.
+- **Doors open from either bordering tile.** A door straddles the edge between two tiles
+  (vertical → x/x+1, horizontal → y/y+1); in play mode, clicking EITHER tile now reveals its
+  rooms — no need to hit the thin door sprite exactly.
 - **Reveal follows hero placement, not the stairway.** Entering play mode no longer auto-reveals
   the stairway/its room (the stairway isn't always the start — it can be the objective). Instead,
   placing a hero reveals its room, or (in a corridor) its tile + line-of-sight corridors.

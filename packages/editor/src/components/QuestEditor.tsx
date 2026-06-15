@@ -454,6 +454,20 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
         store.getState().placeNextHeroAt(tile.x, tile.y)
         return
       }
+      // A door straddles the edge between two tiles (vertical → x..x+1, horizontal → y..y+1).
+      // Clicking EITHER of those tiles opens it — no need to hit the thin door sprite exactly.
+      const door = quest.elements.find((el) => {
+        if (el.type !== 'door' || el.subtype === 'secret') return false
+        const dx = el.position.x
+        const dy = el.position.y
+        return el.orientation === 'vertical'
+          ? tile.y === dy && (tile.x === dx || tile.x === dx + 1)
+          : tile.x === dx && (tile.y === dy || tile.y === dy + 1)
+      })
+      if (door) {
+        for (const g of getGroupsForDoor(quest, door)) revealRoom(g)
+        return
+      }
       // Corridor tile → reveal it; room floor → activate the room (host opens search menu)
       if (!isTileInRoom(quest, tile.x, tile.y)) {
         revealCorridor(tile.x, tile.y)
@@ -466,7 +480,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
         }
       }
     },
-    [quest, pointerToTile, revealCorridor, roomGroups, store],
+    [quest, pointerToTile, revealCorridor, revealRoom, roomGroups, store],
   )
 
   const handleStageClick = useCallback(
