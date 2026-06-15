@@ -125,8 +125,8 @@ export interface EditorState {
   disarmTrap: (id: string) => void
   /** Play-mode: emit `room:activated` for a revealed room (host opens its search menu). */
   activateRoom: (groupId: string) => void
-  /** Play-mode: place a party. Auto-places around the stairway, or enters click-to-place when there's none. */
-  placeHeroes: (heroes: HeroToken[]) => void
+  /** Play-mode: place a party. Auto-places around the stairway, or (no stairway / opts.manual) clears any placed heroes and enters click-to-place. */
+  placeHeroes: (heroes: HeroToken[], opts?: { manual?: boolean }) => void
   /** Play-mode: drop the next queued hero at a tile (click-to-place flow). */
   placeNextHeroAt: (x: number, y: number) => void
   revealRoom: (groupId: string) => void
@@ -446,22 +446,35 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
       if (!s.revealedGroups.has(groupId)) return
       emitEvent({ type: 'room:activated', groupId })
     },
-    placeHeroes: (heroes) => {
+    placeHeroes: (heroes, opts) => {
       const s = get()
       if (s.mode !== 'play' || heroes.length === 0) return
-      const tiles = heroStartTiles(s.quest, heroes.length)
-      if (tiles.length >= heroes.length) {
-        let quest = s.quest
-        for (let i = 0; i < heroes.length; i++) {
-          quest = addElement(quest, createElement('hero', heroes[i].subtype, tiles[i].x, tiles[i].y))
+      // Auto-placement (session start): drop the party around the stairway when possible.
+      if (!opts?.manual) {
+        const tiles = heroStartTiles(s.quest, heroes.length)
+        if (tiles.length >= heroes.length) {
+          let quest = s.quest
+          for (let i = 0; i < heroes.length; i++) {
+            quest = addElement(quest, createElement('hero', heroes[i].subtype, tiles[i].x, tiles[i].y))
+          }
+          set((st) => pushHistory(st, quest))
+          emitEvent({ type: 'heroes:placed', count: heroes.length })
+          return
         }
-        set((st) => pushHistory(st, quest))
-        emitEvent({ type: 'heroes:placed', count: heroes.length })
-      } else {
-        // No stairway (or no room around it) → let the host place them by clicking.
-        set({ placingHeroes: [...heroes], _placingTotal: heroes.length })
-        emitEvent({ type: 'heroes:need-placement', count: heroes.length })
       }
+      // Manual click-to-place: explicitly requested, or no stairway to auto-place around.
+      // Clear any heroes already on the board (e.g. a prior auto-placement) so the
+      // Zargon can re-place them where the quest says (custom start positions).
+      let quest = s.quest
+      for (const h of s.quest.elements.filter((e) => e.type === 'hero')) {
+        quest = removeElement(quest, h.id)
+      }
+      set((st) => ({
+        ...pushHistory(st, quest),
+        placingHeroes: [...heroes],
+        _placingTotal: heroes.length,
+      }))
+      emitEvent({ type: 'heroes:need-placement', count: heroes.length })
     },
     placeNextHeroAt: (x, y) => {
       const s = get()

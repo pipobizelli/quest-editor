@@ -42,8 +42,8 @@ export interface QuestEditorHandle {
   removeElement: (id: string) => void
   /** Play mode: search a room group. Reveals found traps/secret doors and emits the matching `search:*` event. */
   searchRoom: (groupId: string, kind: 'treasure' | 'traps' | 'secret') => void
-  /** Play mode: place a party — auto around the stairway, or click-to-place when there's none. */
-  placeHeroes: (heroes: { subtype: string }[]) => void
+  /** Play mode: place a party — auto around the stairway, or (no stairway / opts.manual) clears placed heroes and enters click-to-place. */
+  placeHeroes: (heroes: { subtype: string }[], opts?: { manual?: boolean }) => void
 }
 
 const PANEL_WIDTH = 220
@@ -112,7 +112,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
     getRevealedGroups: () => Array.from(store.getState().revealedGroups),
     removeElement: (id) => store.getState().removeElement(id),
     searchRoom: (groupId, kind) => store.getState().searchRoom(groupId, kind),
-    placeHeroes: (heroes) => store.getState().placeHeroes(heroes),
+    placeHeroes: (heroes, opts) => store.getState().placeHeroes(heroes, opts),
   }), [store])
 
   const stageRef = useRef<Konva.Stage>(null)

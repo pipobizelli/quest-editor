@@ -76,6 +76,21 @@ describe('hero placement', () => {
     expect(heroes(store)).toHaveLength(1)
   })
 
+  it('manual placement clears auto-placed heroes and re-enters click-to-place (even with a stairway)', () => {
+    const handler = vi.fn()
+    const store = createEditorStore(questWithStairway(), handler)
+    store.getState().setMode('play')
+    store.getState().placeHeroes(PARTY) // auto-places around the stairway
+    expect(heroes(store)).toHaveLength(4)
+    handler.mockClear()
+
+    store.getState().placeHeroes(PARTY, { manual: true })
+
+    expect(heroes(store)).toHaveLength(0) // cleared
+    expect(store.getState().placingHeroes).toHaveLength(4)
+    expect(handler).toHaveBeenCalledWith({ type: 'heroes:need-placement', count: 4 })
+  })
+
   it('placeHeroes is a no-op outside play mode', () => {
     const handler = vi.fn()
     const store = createEditorStore(questWithStairway(), handler)
