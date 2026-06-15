@@ -19,6 +19,11 @@ versions are tracked per package. Format loosely follows
   positions (e.g. quests whose entry is marked corners, not a stairway).
 
 #### Changed
+- **Play mode hides the element sidebar.** The catalog/edit tools aren't useful in play, so the
+  220px panel is hidden and the canvas takes the full width; only a compact floating control
+  remains — recenter (⌖) and the play↔edit toggle. New **`C` shortcut** recenters the board, and
+  the view auto-recenters on mode change. New `showModeToggle` prop (default true) lets a host that
+  owns the mode (e.g. a live session) hide the toggle and keep only recenter.
 - Heroes are **always visible in play mode** — the party's own pieces are never fog-hidden.
 - **Doors open from either bordering tile.** A door straddles the edge between two tiles
   (vertical → x/x+1, horizontal → y/y+1); in play mode, clicking EITHER tile now reveals its

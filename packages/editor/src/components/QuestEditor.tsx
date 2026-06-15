@@ -23,6 +23,8 @@ export interface QuestEditorProps {
   theme?: EditorTheme | string
   showLabels?: boolean
   showRoomIds?: boolean
+  /** Show the play↔edit toggle in play mode. Hosts that own the mode (e.g. a live session) pass false. */
+  showModeToggle?: boolean
   plugins?: EditorPlugin[]
   llmProvider?: LLMProvider
 }
@@ -61,6 +63,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
   theme: themeProp,
   showLabels = true,
   showRoomIds = false,
+  showModeToggle = true,
   plugins = [],
   llmProvider,
 }, ref) {
@@ -123,7 +126,8 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
 
   const stageRef = useRef<Konva.Stage>(null)
   const isDraggingRect = useRef(false)
-  const canvasWidth = containerWidth - PANEL_WIDTH
+  // Play mode hides the element sidebar, so the canvas takes the full width.
+  const canvasWidth = containerWidth - (mode === 'play' ? 0 : PANEL_WIDTH)
 
   // Calculate scale and position to fit and center the board
   const labelPadding = 20
@@ -150,6 +154,14 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
     setScale(v.scale)
     setStagePos(v.pos)
   }, [getCenteredView])
+  // Stable handle to the latest recenter, for the keyboard shortcut and mode-change effect.
+  const recenterRef = useRef(recenter)
+  recenterRef.current = recenter
+
+  // Re-center when toggling play/edit (the sidebar appears/disappears, changing the canvas width).
+  useEffect(() => {
+    recenterRef.current()
+  }, [mode])
 
   const roomGroups = useMemo(() => getGroupedRooms(quest), [quest])
 
@@ -318,6 +330,9 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
       }
       if (e.key === 'd' || e.key === 'D') {
         store.getState().setTool('disable')
+      }
+      if (e.key === 'c' || e.key === 'C') {
+        recenterRef.current()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -546,30 +561,54 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
   return (
     <ThemeContext.Provider value={resolvedTheme}>
     <div style={{ display: 'flex', height: containerHeight, background: resolvedTheme.canvasBg }}>
-      <ElementPanel
-        placingEntry={placingEntry}
-        placingRotation={placingRotation}
-        selectedElementId={selectedElementId}
-        onSelect={startPlacing}
-        onDeselect={stopPlacing}
-        onDeleteSelected={removeSelected}
-        onRotate={rotatePlacing}
-        onRotateSelected={rotateSelected}
-        tool={tool}
-        onSetTool={setTool}
-        onRecenter={recenter}
-        plugins={plugins}
-        quest={quest}
-        onUpdateQuest={(q) => store.getState().setQuest(q)}
-        llmProvider={llmProvider}
-        locked={locked}
-        lock={lock}
-        unlock={unlock}
-        onEvent={(e) => onEventRef.current?.(e)}
-        mode={mode}
-        onSetMode={setMode}
-      />
+      {/* The element catalog / edit tools are useless in play mode — hide the whole sidebar. */}
+      {mode === 'edit' && (
+        <ElementPanel
+          placingEntry={placingEntry}
+          placingRotation={placingRotation}
+          selectedElementId={selectedElementId}
+          onSelect={startPlacing}
+          onDeselect={stopPlacing}
+          onDeleteSelected={removeSelected}
+          onRotate={rotatePlacing}
+          onRotateSelected={rotateSelected}
+          tool={tool}
+          onSetTool={setTool}
+          onRecenter={recenter}
+          plugins={plugins}
+          quest={quest}
+          onUpdateQuest={(q) => store.getState().setQuest(q)}
+          llmProvider={llmProvider}
+          locked={locked}
+          lock={lock}
+          unlock={unlock}
+          onEvent={(e) => onEventRef.current?.(e)}
+          mode={mode}
+          onSetMode={setMode}
+        />
+      )}
       <div style={{ position: 'relative', flex: 1 }}>
+        {/* Play mode: only the play toggle + recenter (no sidebar). */}
+        {mode === 'play' && !locked && (
+          <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 5, display: 'flex', gap: 6 }}>
+            {showModeToggle && (
+              <button
+                onClick={() => setMode('edit')}
+                title="Voltar ao modo edição"
+                style={{ padding: '6px 12px', background: '#1a5a1a', color: '#4ade80', border: '1px solid #2ecc71', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
+              >
+                ▶ Play
+              </button>
+            )}
+            <button
+              onClick={recenter}
+              title="Centralizar (C)"
+              style={{ padding: '6px 10px', background: resolvedTheme.btnBg, color: resolvedTheme.btnColor, border: `1px solid ${resolvedTheme.btnBorder}`, borderRadius: 6, cursor: 'pointer', fontSize: 14 }}
+            >
+              ⌖
+            </button>
+          </div>
+        )}
         <Stage
           ref={stageRef}
           width={canvasWidth}
