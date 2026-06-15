@@ -17,11 +17,9 @@ versions are tracked per package. Format loosely follows
 
 #### Changed
 - Heroes are **always visible in play mode** — the party's own pieces are never fog-hidden.
-
-#### Fixed
-- Entering play mode now also reveals the **room the stairway sits in**. A stairway placed
-  inside a room previously left the whole board fogged (ray-cast finds no corridor to reveal)
-  — i.e. a black screen at session start.
+- **Reveal follows hero placement, not the stairway.** Entering play mode no longer auto-reveals
+  the stairway/its room (the stairway isn't always the start — it can be the objective). Instead,
+  placing a hero reveals its room, or (in a corridor) its tile + line-of-sight corridors.
 
 ### 0.1.5 — 2026-06-13
 

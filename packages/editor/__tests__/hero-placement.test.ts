@@ -76,6 +76,35 @@ describe('hero placement', () => {
     expect(heroes(store)).toHaveLength(1)
   })
 
+  it('reveals the room where a hero is placed (auto)', () => {
+    // Stairway inside room r1 → auto-places heroes there → reveals r1.
+    const room = { id: 'r1', x: 5, y: 5, width: 4, height: 4 }
+    const stairway = createElement('marker', 'stairway', 6, 6, { width: 2, height: 2 })
+    const store = createEditorStore(
+      createQuest({ name: 'Stair room', layout: { rooms: [room], walls: [] }, elements: [stairway] }),
+    )
+    store.getState().setMode('play')
+    expect(store.getState().revealedGroups.size).toBe(0)
+
+    store.getState().placeHeroes([{ subtype: 'barbarian' }])
+
+    expect(store.getState().revealedGroups.has('r1')).toBe(true)
+  })
+
+  it('reveals the room where a hero is dropped (manual click-to-place)', () => {
+    const room = { id: 'r1', x: 5, y: 5, width: 4, height: 4 }
+    const store = createEditorStore(
+      createQuest({ name: 'No stairway', layout: { rooms: [room], walls: [] } }),
+    )
+    store.getState().setMode('play')
+    store.getState().placeHeroes([{ subtype: 'barbarian' }])
+    expect(store.getState().revealedGroups.has('r1')).toBe(false)
+
+    store.getState().placeNextHeroAt(6, 6) // inside r1
+
+    expect(store.getState().revealedGroups.has('r1')).toBe(true)
+  })
+
   it('manual placement clears auto-placed heroes and re-enters click-to-place (even with a stairway)', () => {
     const handler = vi.fn()
     const store = createEditorStore(questWithStairway(), handler)

@@ -10,7 +10,7 @@ import {
   toggleTile,
   toggleTilesRect,
 } from '@quest-editor/core'
-import { revealCorridorTiles, getStairwayTiles, parseTileKey, getGroupedRooms, getElementsByRooms, isWithinBoard, isDisabledTile, isOccupiedTile } from '@quest-editor/core'
+import { revealCorridorTiles, getStairwayTiles, parseTileKey, tileKey, getGroupedRooms, getElementsByRooms, isWithinBoard, isDisabledTile, isOccupiedTile } from '@quest-editor/core'
 import type { EventEmitter } from './events'
 
 function normalizeRotation(deg: number): number {
@@ -68,6 +68,16 @@ function heroStartTiles(quest: Quest, count: number): Position[] {
     }
   }
   return out.slice(0, count)
+}
+
+/** What to reveal when a hero lands on (x,y): its room, or (corridor) the tile + line-of-sight. */
+function revealForHero(quest: Quest, x: number, y: number): { groups: string[]; tiles: string[] } {
+  const groups = getGroupedRooms(quest)
+    .filter((g) => g.rooms.some((r) => x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height))
+    .map((g) => g.id)
+  if (groups.length > 0) return { groups, tiles: [] }
+  // Corridor: reveal the tile itself + corridors in line of sight.
+  return { groups: [], tiles: [tileKey(x, y), ...revealCorridorTiles(quest, x, y)] }
 }
 
 export interface EditorState {
@@ -357,30 +367,13 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
     },
     setMode: (mode) => {
       if (mode === 'play') {
-        const s = get()
-        // Auto-reveal stairway tiles
-        const stairTiles = getStairwayTiles(s.quest)
-        // Also reveal corridor tiles visible from stairway via ray-cast
-        const initialTiles = new Set<string>(stairTiles)
-        // And reveal the room the stairway sits in (the heroes' entry area) — otherwise
-        // a stairway placed inside a room leaves the whole board fogged (a black screen).
-        const initialGroups = new Set<string>()
-        const groups = getGroupedRooms(s.quest)
-        for (const key of stairTiles) {
-          const [x, y] = parseTileKey(key)
-          for (const t of revealCorridorTiles(s.quest, x, y)) {
-            initialTiles.add(t)
-          }
-          for (const g of groups) {
-            if (g.rooms.some((r) => x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height)) {
-              initialGroups.add(g.id)
-            }
-          }
-        }
+        // Nothing is revealed up front — the stairway isn't necessarily the heroes'
+        // start (it can be the objective). Reveal follows where heroes are placed
+        // (see placeHeroes / placeNextHeroAt) and which doors/corridors get opened.
         set({
           mode,
-          revealedGroups: initialGroups,
-          revealedTiles: initialTiles,
+          revealedGroups: new Set<string>(),
+          revealedTiles: new Set<string>(),
           discoveredElements: new Set<string>(),
           placingHeroes: [],
           _placingTotal: 0,
@@ -454,10 +447,15 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
         const tiles = heroStartTiles(s.quest, heroes.length)
         if (tiles.length >= heroes.length) {
           let quest = s.quest
+          const groups = new Set(s.revealedGroups)
+          const rtiles = new Set(s.revealedTiles)
           for (let i = 0; i < heroes.length; i++) {
             quest = addElement(quest, createElement('hero', heroes[i].subtype, tiles[i].x, tiles[i].y))
+            const rev = revealForHero(s.quest, tiles[i].x, tiles[i].y)
+            rev.groups.forEach((g) => groups.add(g))
+            rev.tiles.forEach((t) => rtiles.add(t))
           }
-          set((st) => pushHistory(st, quest))
+          set((st) => ({ ...pushHistory(st, quest), revealedGroups: groups, revealedTiles: rtiles }))
           emitEvent({ type: 'heroes:placed', count: heroes.length })
           return
         }
@@ -482,9 +480,12 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
       const blockers = s.quest.elements.filter((e) => e.type !== 'marker')
       if (!isWithinBoard(s.quest.board, x, y) || isDisabledTile(s.quest, x, y) || isOccupiedTile(blockers, x, y)) return
       const [next, ...rest] = s.placingHeroes
+      const rev = revealForHero(s.quest, x, y)
       set((st) => ({
         ...pushHistory(st, addElement(st.quest, createElement('hero', next.subtype, x, y))),
         placingHeroes: rest,
+        revealedGroups: rev.groups.length ? new Set([...st.revealedGroups, ...rev.groups]) : st.revealedGroups,
+        revealedTiles: rev.tiles.length ? new Set([...st.revealedTiles, ...rev.tiles]) : st.revealedTiles,
       }))
       if (rest.length === 0) {
         emitEvent({ type: 'heroes:placed', count: s._placingTotal })

@@ -4,7 +4,7 @@ import { createEditorStore } from '../src/store'
 import type { EditorEvent } from '../src/events'
 
 describe('fog of war', () => {
-  it('reveals the stairway room on entering play (so an in-room stairway is not a black screen)', () => {
+  it('reveals nothing on entering play — the stairway is not assumed to be the start', () => {
     const room = { id: 'r1', x: 5, y: 5, width: 4, height: 4 }
     const stairway = createElement('marker', 'stairway', 6, 6, { width: 2, height: 2 })
     const quest = createQuest({ name: 'Stair in room', layout: { rooms: [room], walls: [] }, elements: [stairway] })
@@ -12,7 +12,8 @@ describe('fog of war', () => {
 
     store.getState().setMode('play')
 
-    expect(store.getState().revealedGroups.has('r1')).toBe(true)
+    expect(store.getState().revealedGroups.size).toBe(0)
+    expect(store.getState().revealedTiles.size).toBe(0)
   })
 
   it('starts in edit mode', () => {
