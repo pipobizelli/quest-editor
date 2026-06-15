@@ -120,6 +120,29 @@ describe('hero placement', () => {
     expect(handler).toHaveBeenCalledWith({ type: 'heroes:need-placement', count: 4 })
   })
 
+  it('places a wandering monster on a free tile next to a hero, and reveals it', () => {
+    const room = { id: 'r1', x: 5, y: 5, width: 4, height: 4 }
+    const store = createEditorStore(createQuest({ name: 'WM', layout: { rooms: [room], walls: [] } }))
+    store.getState().setMode('play')
+    store.getState().placeHeroes([{ subtype: 'barbarian' }]) // no stairway → manual queue
+    store.getState().placeNextHeroAt(6, 6)
+
+    const placed = store.getState().placeMonsterNearHero('orc', 'barbarian')
+
+    expect(placed).toBe(true)
+    const monsters = store.getState().quest.elements.filter((e) => e.type === 'monster')
+    expect(monsters).toHaveLength(1)
+    const dx = Math.abs(monsters[0].position.x - 6)
+    const dy = Math.abs(monsters[0].position.y - 6)
+    expect(dx <= 1 && dy <= 1 && dx + dy > 0).toBe(true) // adjacent, not on top
+  })
+
+  it('placeMonsterNearHero returns false when the hero is not on the board', () => {
+    const store = createEditorStore(createQuest({ name: 'WM' }))
+    store.getState().setMode('play')
+    expect(store.getState().placeMonsterNearHero('orc', 'barbarian')).toBe(false)
+  })
+
   it('placeHeroes is a no-op outside play mode', () => {
     const handler = vi.fn()
     const store = createEditorStore(questWithStairway(), handler)

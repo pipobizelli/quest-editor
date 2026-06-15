@@ -44,6 +44,8 @@ export interface QuestEditorHandle {
   searchRoom: (groupId: string, kind: 'treasure' | 'traps' | 'secret') => void
   /** Play mode: place a party — auto around the stairway, or (no stairway / opts.manual) clears placed heroes and enters click-to-place. */
   placeHeroes: (heroes: { subtype: string }[], opts?: { manual?: boolean }) => void
+  /** Play mode: place a wandering monster next to a hero. Returns false if the hero isn't on the board or there's no free tile. */
+  placeMonsterNearHero: (monsterSubtype: string, heroSubtype: string) => boolean
 }
 
 const PANEL_WIDTH = 220
@@ -113,6 +115,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
     removeElement: (id) => store.getState().removeElement(id),
     searchRoom: (groupId, kind) => store.getState().searchRoom(groupId, kind),
     placeHeroes: (heroes, opts) => store.getState().placeHeroes(heroes, opts),
+    placeMonsterNearHero: (monsterSubtype, heroSubtype) => store.getState().placeMonsterNearHero(monsterSubtype, heroSubtype),
   }), [store])
 
   const stageRef = useRef<Konva.Stage>(null)

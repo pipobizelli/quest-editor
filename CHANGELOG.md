@@ -9,6 +9,9 @@ versions are tracked per package. Format loosely follows
 ### Unreleased
 
 #### Added
+- `QuestEditorHandle.placeMonsterNearHero(monsterSubtype, heroSubtype)` — places a monster on a
+  free tile next to a hero (for treasure "wandering monster" cards) and reveals it; returns false
+  if the hero isn't on the board or there's no free adjacent tile.
 - **Hero placement.** `QuestEditorHandle.placeHeroes(heroes, opts?)` — in play mode, auto-places
   the party on free tiles around the stairway; with no stairway (or `opts.manual`) it clears any
   placed heroes and enters click-to-place (`heroes:need-placement` → each board click drops the

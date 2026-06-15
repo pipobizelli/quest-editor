@@ -139,6 +139,8 @@ export interface EditorState {
   placeHeroes: (heroes: HeroToken[], opts?: { manual?: boolean }) => void
   /** Play-mode: drop the next queued hero at a tile (click-to-place flow). */
   placeNextHeroAt: (x: number, y: number) => void
+  /** Play-mode: place a monster on a free tile next to a hero (wandering monster). Returns false if the hero isn't on the board or no free tile. */
+  placeMonsterNearHero: (monsterSubtype: string, heroSubtype: string) => boolean
   revealRoom: (groupId: string) => void
   revealCorridor: (x: number, y: number) => void
   resetFog: () => void
@@ -490,6 +492,32 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
       if (rest.length === 0) {
         emitEvent({ type: 'heroes:placed', count: s._placingTotal })
       }
+    },
+    placeMonsterNearHero: (monsterSubtype, heroSubtype) => {
+      const s = get()
+      if (s.mode !== 'play') return false
+      const hero = s.quest.elements.find((e) => e.type === 'hero' && e.subtype === heroSubtype)
+      if (!hero) return false
+      const hx = hero.position.x
+      const hy = hero.position.y
+      const blockers = s.quest.elements.filter((e) => e.type !== 'marker')
+      const free = (x: number, y: number) =>
+        isWithinBoard(s.quest.board, x, y) && !isDisabledTile(s.quest, x, y) && !isOccupiedTile(blockers, x, y)
+      // Prefer orthogonal neighbours, then diagonals.
+      const candidates: [number, number][] = [
+        [hx + 1, hy], [hx - 1, hy], [hx, hy + 1], [hx, hy - 1],
+        [hx + 1, hy + 1], [hx - 1, hy - 1], [hx + 1, hy - 1], [hx - 1, hy + 1],
+      ]
+      const spot = candidates.find(([x, y]) => free(x, y))
+      if (!spot) return false
+      const [x, y] = spot
+      const rev = revealForHero(s.quest, x, y)
+      set((st) => ({
+        ...pushHistory(st, addElement(st.quest, createElement('monster', monsterSubtype, x, y))),
+        revealedGroups: rev.groups.length ? new Set([...st.revealedGroups, ...rev.groups]) : st.revealedGroups,
+        revealedTiles: rev.tiles.length ? new Set([...st.revealedTiles, ...rev.tiles]) : st.revealedTiles,
+      }))
+      return true
     },
     revealRoom: (groupId) => {
       const s = get()
