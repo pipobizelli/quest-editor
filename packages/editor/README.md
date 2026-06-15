@@ -42,8 +42,9 @@ function App() {
 - **Validation**: Real-time error/warning panel
 - **Events**: `onEvent` callback for tracking element changes, quest loads, room reveals, and the play-mode `monster:killed` / `search:*` / `trap:disarmed` hooks
 - **Play-mode hooks**: Clicking a monster fires `monster:killed`; clicking a discovered trap fires `trap:disarmed` (both intercept — the editor does not remove; the host removes via `removeElement`). `searchRoom(groupId, kind)` reveals hidden room traps / secret doors and emits `search:*`
+- **Hero placement**: `placeHeroes(heroes)` auto-places the party around the stairway, or enters click-to-place when there's none
 - **Plugin system**: Extensible panel sections via `EditorPlugin` interface
-- **Ref API**: `QuestEditorHandle` with `lock`, `unlock`, `undo`, `redo`, `setMode`, `revealRoom`, `getRevealedGroups`, `removeElement`, `searchRoom`
+- **Ref API**: `QuestEditorHandle` with `lock`, `unlock`, `undo`, `redo`, `setMode`, `revealRoom`, `getRevealedGroups`, `removeElement`, `searchRoom`, `placeHeroes`
 
 ## Peer Dependencies
 

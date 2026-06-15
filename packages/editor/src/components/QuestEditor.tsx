@@ -42,6 +42,8 @@ export interface QuestEditorHandle {
   removeElement: (id: string) => void
   /** Play mode: search a room group. Reveals found traps/secret doors and emits the matching `search:*` event. */
   searchRoom: (groupId: string, kind: 'treasure' | 'traps' | 'secret') => void
+  /** Play mode: place a party — auto around the stairway, or click-to-place when there's none. */
+  placeHeroes: (heroes: { subtype: string }[]) => void
 }
 
 const PANEL_WIDTH = 220
@@ -94,6 +96,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
   const revealedGroups = useStore(store, (s) => s.revealedGroups)
   const revealedTiles = useStore(store, (s) => s.revealedTiles)
   const discoveredElements = useStore(store, (s) => s.discoveredElements)
+  const placingHeroes = useStore(store, (s) => s.placingHeroes)
   const setMode = useStore(store, (s) => s.setMode)
   const revealRoom = useStore(store, (s) => s.revealRoom)
   const revealCorridor = useStore(store, (s) => s.revealCorridor)
@@ -109,6 +112,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
     getRevealedGroups: () => Array.from(store.getState().revealedGroups),
     removeElement: (id) => store.getState().removeElement(id),
     searchRoom: (groupId, kind) => store.getState().searchRoom(groupId, kind),
+    placeHeroes: (heroes) => store.getState().placeHeroes(heroes),
   }), [store])
 
   const stageRef = useRef<Konva.Stage>(null)
@@ -202,8 +206,8 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
         if (isSecretDoor || (el.type === 'trap' && groupId)) {
           if (!discoveredElements.has(el.id)) continue
         }
-        // Normal doors, markers, and structural blocks are always visible
-        else if (el.type === 'door' || el.type === 'marker') { /* visible */ }
+        // Heroes (the party's own pieces), normal doors, markers, and structural blocks are always visible
+        else if (el.type === 'hero' || el.type === 'door' || el.type === 'marker') { /* visible */ }
         else if (el.type === 'furniture' && (el.subtype === 'block' || el.subtype === 'doubleblock')) { /* visible */ }
         // All other elements: only visible in revealed areas
         else {
@@ -445,6 +449,11 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
       if (e.target !== e.target.getStage()) return
       const tile = pointerToTile()
       if (!tile) return
+      // Click-to-place heroes (no stairway) takes priority over reveal/activate.
+      if (store.getState().placingHeroes.length > 0) {
+        store.getState().placeNextHeroAt(tile.x, tile.y)
+        return
+      }
       // Corridor tile → reveal it; room floor → activate the room (host opens search menu)
       if (!isTileInRoom(quest, tile.x, tile.y)) {
         revealCorridor(tile.x, tile.y)
@@ -552,7 +561,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
           onMouseDown={(locked || mode === 'play') ? undefined : handleMouseDown}
           onMouseMove={(locked || mode === 'play') ? undefined : handleMouseMove}
           onMouseUp={(locked || mode === 'play') ? undefined : handleMouseUp}
-          style={{ cursor: locked ? 'not-allowed' : mode === 'play' ? 'default' : cursorMap[tool], opacity: locked ? 0.45 : 1, transition: 'opacity 0.3s ease' }}
+          style={{ cursor: locked ? 'not-allowed' : mode === 'play' ? (placingHeroes.length > 0 ? 'crosshair' : 'default') : cursorMap[tool], opacity: locked ? 0.45 : 1, transition: 'opacity 0.3s ease' }}
           onDragEnd={(e) => {
             if (e.target === stageRef.current) {
               setStagePos({ x: e.target.x(), y: e.target.y() })

@@ -226,6 +226,8 @@ function handleEvent(event: EditorEvent) {
 | `search:traps` | `groupId`, `found` | **Play mode**: `searchRoom(groupId, 'traps')` revealed any hidden room traps; `found` lists them (empty = none there) |
 | `search:secret` | `groupId`, `found` | **Play mode**: `searchRoom(groupId, 'secret')` revealed any hidden secret doors |
 | `trap:disarmed` | `element` | **Play mode**: a selected discovered trap was deleted (Delete/Backspace). Intercept hook — host attributes the disarm and removes via `handle.removeElement(id)` |
+| `heroes:need-placement` | `count` | **Play mode**: `placeHeroes` found no stairway — host shows a hint; each board click drops the next hero |
+| `heroes:placed` | `count` | **Play mode**: the party finished placement (auto around the stairway, or click-to-place) |
 | `plugin:event` | `pluginId`, `action`, `data` | Custom event from a plugin |
 
 Plugins can emit custom events via the `emit` function in `PluginPanelProps`:

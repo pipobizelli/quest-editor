@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { Quest, QuestElement, CatalogEntry, Position } from '@quest-editor/core'
 import {
   createQuest,
+  createElement,
   addElement,
   removeElement,
   updateElement,
@@ -9,7 +10,7 @@ import {
   toggleTile,
   toggleTilesRect,
 } from '@quest-editor/core'
-import { revealCorridorTiles, getStairwayTiles, parseTileKey, getGroupedRooms, getElementsByRooms } from '@quest-editor/core'
+import { revealCorridorTiles, getStairwayTiles, parseTileKey, getGroupedRooms, getElementsByRooms, isWithinBoard, isDisabledTile, isOccupiedTile } from '@quest-editor/core'
 import type { EventEmitter } from './events'
 
 function normalizeRotation(deg: number): number {
@@ -22,6 +23,52 @@ function shouldSwapDimensions(rotation: number): boolean {
 }
 
 const MAX_HISTORY = 50
+
+export interface HeroToken {
+  subtype: string
+}
+
+/**
+ * Up to `count` free tiles for hero start positions: the stairway's own tiles first
+ * (the stairway marker doesn't block heroes), then expanding rings around it. Returns
+ * [] when there's no stairway — the caller then falls back to manual click-to-place.
+ */
+function heroStartTiles(quest: Quest, count: number): Position[] {
+  const stair = getStairwayTiles(quest).map((k) => {
+    const [x, y] = parseTileKey(k)
+    return { x, y }
+  })
+  if (stair.length === 0) return []
+  const minX = Math.min(...stair.map((t) => t.x))
+  const maxX = Math.max(...stair.map((t) => t.x))
+  const minY = Math.min(...stair.map((t) => t.y))
+  const maxY = Math.max(...stair.map((t) => t.y))
+  // Stairway tiles are fine to stand on — ignore markers when checking occupancy.
+  const blockers = quest.elements.filter((e) => e.type !== 'marker')
+  const seen = new Set<string>()
+  const out: Position[] = []
+  const tryTile = (x: number, y: number) => {
+    const key = `${x},${y}`
+    if (seen.has(key)) return
+    seen.add(key)
+    if (!isWithinBoard(quest.board, x, y)) return
+    if (isDisabledTile(quest, x, y)) return
+    if (isOccupiedTile(blockers, x, y)) return
+    out.push({ x, y })
+  }
+  for (const t of stair) tryTile(t.x, t.y)
+  for (let r = 1; out.length < count && r <= 4; r++) {
+    for (let x = minX - r; x <= maxX + r; x++) {
+      tryTile(x, minY - r)
+      tryTile(x, maxY + r)
+    }
+    for (let y = minY - r; y <= maxY + r; y++) {
+      tryTile(minX - r, y)
+      tryTile(maxX + r, y)
+    }
+  }
+  return out.slice(0, count)
+}
 
 export interface EditorState {
   quest: Quest
@@ -38,6 +85,10 @@ export interface EditorState {
   revealedTiles: Set<string>
   /** Play-mode discovery: ids of room traps & secret doors found via search. */
   discoveredElements: Set<string>
+  /** Play-mode: heroes still awaiting manual click-to-place (no stairway). */
+  placingHeroes: HeroToken[]
+  /** Original party size for the in-progress manual placement (for the heroes:placed count). */
+  _placingTotal: number
 
   // History
   _history: Quest[]
@@ -74,6 +125,10 @@ export interface EditorState {
   disarmTrap: (id: string) => void
   /** Play-mode: emit `room:activated` for a revealed room (host opens its search menu). */
   activateRoom: (groupId: string) => void
+  /** Play-mode: place a party. Auto-places around the stairway, or enters click-to-place when there's none. */
+  placeHeroes: (heroes: HeroToken[]) => void
+  /** Play-mode: drop the next queued hero at a tile (click-to-place flow). */
+  placeNextHeroAt: (x: number, y: number) => void
   revealRoom: (groupId: string) => void
   revealCorridor: (x: number, y: number) => void
   resetFog: () => void
@@ -108,6 +163,8 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
     revealedGroups: new Set<string>(),
     revealedTiles: new Set<string>(),
     discoveredElements: new Set<string>(),
+    placingHeroes: [],
+    _placingTotal: 0,
     _history: [],
     _future: [],
     canUndo: false,
@@ -316,13 +373,15 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
           revealedGroups: new Set<string>(),
           revealedTiles: initialTiles,
           discoveredElements: new Set<string>(),
+          placingHeroes: [],
+          _placingTotal: 0,
           selectedElementId: null,
           selectedElementIds: [],
           placingEntry: null,
           tool: 'select',
         })
       } else {
-        set({ mode, revealedGroups: new Set<string>(), revealedTiles: new Set<string>(), discoveredElements: new Set<string>() })
+        set({ mode, revealedGroups: new Set<string>(), revealedTiles: new Set<string>(), discoveredElements: new Set<string>(), placingHeroes: [], _placingTotal: 0 })
       }
     },
     killMonster: (id) => {
@@ -377,6 +436,37 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
       if (s.mode !== 'play') return
       if (!s.revealedGroups.has(groupId)) return
       emitEvent({ type: 'room:activated', groupId })
+    },
+    placeHeroes: (heroes) => {
+      const s = get()
+      if (s.mode !== 'play' || heroes.length === 0) return
+      const tiles = heroStartTiles(s.quest, heroes.length)
+      if (tiles.length >= heroes.length) {
+        let quest = s.quest
+        for (let i = 0; i < heroes.length; i++) {
+          quest = addElement(quest, createElement('hero', heroes[i].subtype, tiles[i].x, tiles[i].y))
+        }
+        set((st) => pushHistory(st, quest))
+        emitEvent({ type: 'heroes:placed', count: heroes.length })
+      } else {
+        // No stairway (or no room around it) → let the host place them by clicking.
+        set({ placingHeroes: [...heroes], _placingTotal: heroes.length })
+        emitEvent({ type: 'heroes:need-placement', count: heroes.length })
+      }
+    },
+    placeNextHeroAt: (x, y) => {
+      const s = get()
+      if (s.mode !== 'play' || s.placingHeroes.length === 0) return
+      const blockers = s.quest.elements.filter((e) => e.type !== 'marker')
+      if (!isWithinBoard(s.quest.board, x, y) || isDisabledTile(s.quest, x, y) || isOccupiedTile(blockers, x, y)) return
+      const [next, ...rest] = s.placingHeroes
+      set((st) => ({
+        ...pushHistory(st, addElement(st.quest, createElement('hero', next.subtype, x, y))),
+        placingHeroes: rest,
+      }))
+      if (rest.length === 0) {
+        emitEvent({ type: 'heroes:placed', count: s._placingTotal })
+      }
     },
     revealRoom: (groupId) => {
       const s = get()

@@ -6,6 +6,16 @@ versions are tracked per package. Format loosely follows
 
 ## `@quest-editor/editor`
 
+### Unreleased
+
+#### Added
+- **Hero placement.** `QuestEditorHandle.placeHeroes(heroes)` — in play mode, auto-places
+  the party on free tiles around the stairway; with no stairway it enters click-to-place
+  (`heroes:need-placement` → each board click drops the next hero → `heroes:placed`).
+
+#### Changed
+- Heroes are **always visible in play mode** — the party's own pieces are never fog-hidden.
+
 ### 0.1.5 — 2026-06-13
 
 #### Changed

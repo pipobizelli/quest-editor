@@ -27,6 +27,12 @@ export type EditorEvent =
   // Play-mode intercept hook (like monster:killed): a discovered trap was clicked.
   // The editor does NOT remove it — the host attributes the disarm and removes via removeElement.
   | { type: 'trap:disarmed'; element: QuestElement }
+  // Hero placement (play mode), driven by `placeHeroes(heroes)` on the handle.
+  // With a stairway, heroes auto-place around it → `heroes:placed`. Without one,
+  // the editor enters click-to-place mode → `heroes:need-placement` (host shows a
+  // hint; each board click drops the next hero) → `heroes:placed` when done.
+  | { type: 'heroes:need-placement'; count: number }
+  | { type: 'heroes:placed'; count: number }
   | { type: 'plugin:event'; pluginId: string; action: string; data?: unknown }
 
 export type EventEmitter = (event: EditorEvent) => void
