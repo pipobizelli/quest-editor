@@ -362,15 +362,24 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
         const stairTiles = getStairwayTiles(s.quest)
         // Also reveal corridor tiles visible from stairway via ray-cast
         const initialTiles = new Set<string>(stairTiles)
+        // And reveal the room the stairway sits in (the heroes' entry area) — otherwise
+        // a stairway placed inside a room leaves the whole board fogged (a black screen).
+        const initialGroups = new Set<string>()
+        const groups = getGroupedRooms(s.quest)
         for (const key of stairTiles) {
           const [x, y] = parseTileKey(key)
           for (const t of revealCorridorTiles(s.quest, x, y)) {
             initialTiles.add(t)
           }
+          for (const g of groups) {
+            if (g.rooms.some((r) => x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height)) {
+              initialGroups.add(g.id)
+            }
+          }
         }
         set({
           mode,
-          revealedGroups: new Set<string>(),
+          revealedGroups: initialGroups,
           revealedTiles: initialTiles,
           discoveredElements: new Set<string>(),
           placingHeroes: [],

@@ -16,6 +16,11 @@ versions are tracked per package. Format loosely follows
 #### Changed
 - Heroes are **always visible in play mode** — the party's own pieces are never fog-hidden.
 
+#### Fixed
+- Entering play mode now also reveals the **room the stairway sits in**. A stairway placed
+  inside a room previously left the whole board fogged (ray-cast finds no corridor to reveal)
+  — i.e. a black screen at session start.
+
 ### 0.1.5 — 2026-06-13
 
 #### Changed

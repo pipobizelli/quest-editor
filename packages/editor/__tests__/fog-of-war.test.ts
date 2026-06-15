@@ -1,9 +1,20 @@
 import { describe, it, expect, vi } from 'vitest'
-import { createElement } from '@quest-editor/core'
+import { createElement, createQuest } from '@quest-editor/core'
 import { createEditorStore } from '../src/store'
 import type { EditorEvent } from '../src/events'
 
 describe('fog of war', () => {
+  it('reveals the stairway room on entering play (so an in-room stairway is not a black screen)', () => {
+    const room = { id: 'r1', x: 5, y: 5, width: 4, height: 4 }
+    const stairway = createElement('marker', 'stairway', 6, 6, { width: 2, height: 2 })
+    const quest = createQuest({ name: 'Stair in room', layout: { rooms: [room], walls: [] }, elements: [stairway] })
+    const store = createEditorStore(quest)
+
+    store.getState().setMode('play')
+
+    expect(store.getState().revealedGroups.has('r1')).toBe(true)
+  })
+
   it('starts in edit mode', () => {
     const store = createEditorStore()
     expect(store.getState().mode).toBe('edit')
