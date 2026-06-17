@@ -64,6 +64,19 @@ describe('editor events', () => {
     })
   })
 
+  it('setElementPosition repositions WITHOUT emitting element:moved', () => {
+    const handler = vi.fn()
+    const store = createEditorStore(undefined, handler)
+    const goblin = createElement('monster', 'goblin', 5, 3)
+    store.getState().addElement(goblin)
+    handler.mockClear()
+
+    store.getState().setElementPosition(goblin.id, 2, 2)
+
+    expect(store.getState().quest.elements.find((e) => e.id === goblin.id)?.position).toEqual({ x: 2, y: 2 })
+    expect(handler.mock.calls.some(([e]: [EditorEvent]) => e.type === 'element:moved')).toBe(false)
+  })
+
   it('emits element:updated with changes', () => {
     const handler = vi.fn()
     const store = createEditorStore(undefined, handler)

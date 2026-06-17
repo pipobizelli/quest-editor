@@ -20,6 +20,8 @@ interface QuestElementNodeProps {
   isSelected: boolean;
   onSelect: (id: string) => void;
   onDragEnd: (id: string, x: number, y: number) => void;
+  /** Whether this element can be dragged (false e.g. for fixtures in play mode). */
+  draggable?: boolean;
 }
 
 export function QuestElementNode({
@@ -28,6 +30,7 @@ export function QuestElementNode({
   isSelected,
   onSelect,
   onDragEnd,
+  draggable = true,
 }: QuestElementNodeProps) {
   const { cellSize } = board;
 
@@ -40,6 +43,7 @@ export function QuestElementNode({
         isSelected={isSelected}
         onSelect={onSelect}
         onDragEnd={onDragEnd}
+        draggable={draggable}
       />
     );
   }
@@ -51,6 +55,7 @@ export function QuestElementNode({
       isSelected={isSelected}
       onSelect={onSelect}
       onDragEnd={onDragEnd}
+      draggable={draggable}
     />
   );
 }
@@ -61,12 +66,14 @@ function StandardNode({
   isSelected,
   onSelect,
   onDragEnd,
+  draggable,
 }: {
   element: QuestElement;
   cellSize: number;
   isSelected: boolean;
   onSelect: (id: string) => void;
   onDragEnd: (id: string, x: number, y: number) => void;
+  draggable: boolean;
 }) {
   const image = useAsset(element.type, element.subtype);
   const catalogEntry = getCatalogEntry(element.type, element.subtype);
@@ -78,7 +85,7 @@ function StandardNode({
     <Group
       x={element.position.x * cellSize}
       y={element.position.y * cellSize}
-      draggable
+      draggable={draggable}
       onClick={() => onSelect(element.id)}
       onTap={() => onSelect(element.id)}
       onDragEnd={(e) => {
@@ -154,6 +161,25 @@ function StandardNode({
           listening={false}
         />
       )}
+      {/* Hero name above the piece — distinguishes same-class heroes. Outlined for legibility. */}
+      {element.type === "hero" && typeof element.metadata?.label === "string" && (
+        <Text
+          text={element.metadata.label as string}
+          x={-elWidth}
+          y={-7}
+          width={elWidth * 3}
+          align="center"
+          fontSize={8}
+          fontStyle="bold"
+          fill={color}
+          stroke="#000"
+          strokeWidth={1.5}
+          fillAfterStrokeEnabled
+          wrap="none"
+          ellipsis
+          listening={false}
+        />
+      )}
     </Group>
   );
 }
@@ -170,12 +196,14 @@ function DoorNode({
   isSelected,
   onSelect,
   onDragEnd,
+  draggable,
 }: {
   element: QuestElement;
   cellSize: number;
   isSelected: boolean;
   onSelect: (id: string) => void;
   onDragEnd: (id: string, x: number, y: number) => void;
+  draggable: boolean;
 }) {
   const image = useAsset("door", element.subtype);
   const catalogEntry = getCatalogEntry("door", element.subtype);
@@ -200,7 +228,7 @@ function DoorNode({
     <Group
       x={element.position.x * cellSize}
       y={element.position.y * cellSize}
-      draggable
+      draggable={draggable}
       onClick={() => onSelect(element.id)}
       onTap={() => onSelect(element.id)}
       onDragEnd={(e) => {

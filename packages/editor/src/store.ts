@@ -26,6 +26,8 @@ const MAX_HISTORY = 50
 
 export interface HeroToken {
   subtype: string
+  /** Optional display name shown above the piece — distinguishes same-class heroes. */
+  label?: string
 }
 
 /**
@@ -70,6 +72,29 @@ function heroStartTiles(quest: Quest, count: number): Position[] {
   return out.slice(0, count)
 }
 
+/**
+ * Secret doors are tile blocks WITHOUT an orientation (unlike edge doors), so they can't
+ * use the orientation-gated room connectivity. A secret door belongs to a room when its
+ * tile is inside the room OR orthogonally on one of its wall edges — so a passage on a
+ * shared wall belongs to BOTH adjacent rooms (and to a bordering corridor). Kept local to
+ * the editor (not a core export) so the bundle doesn't depend on a new core release.
+ */
+function secretDoorBordersRoom(
+  door: QuestElement,
+  room: { x: number; y: number; width: number; height: number },
+): boolean {
+  const { x, y } = door.position
+  const inside = x >= room.x && x < room.x + room.width && y >= room.y && y < room.y + room.height
+  const onVerticalEdge = y >= room.y && y < room.y + room.height && (x === room.x - 1 || x === room.x + room.width)
+  const onHorizontalEdge = x >= room.x && x < room.x + room.width && (y === room.y - 1 || y === room.y + room.height)
+  return inside || onVerticalEdge || onHorizontalEdge
+}
+
+/** createElement overrides carrying a hero's display name (when provided). */
+function heroLabelMeta(hero: HeroToken): Partial<QuestElement> | undefined {
+  return hero.label ? { metadata: { label: hero.label } } : undefined
+}
+
 /** What to reveal when a hero lands on (x,y): its room, or (corridor) the tile + line-of-sight. */
 function revealForHero(quest: Quest, x: number, y: number): { groups: string[]; tiles: string[] } {
   const groups = getGroupedRooms(quest)
@@ -112,6 +137,10 @@ export interface EditorState {
   removeSelected: () => void
   updateElement: (id: string, updates: Partial<QuestElement>) => void
   moveElement: (id: string, x: number, y: number) => void
+  /** Silent reposition (no event) — for host-driven corrections like undoing a logged move. */
+  setElementPosition: (id: string, x: number, y: number) => void
+  /** Play-mode move of a mobile piece. Commits the position; heroes also reveal their new line of sight. */
+  moveInPlay: (id: string, x: number, y: number) => void
   selectElement: (id: string | null) => void
   selectElements: (ids: string[]) => void
   setTool: (tool: EditorState['tool']) => void
@@ -144,7 +173,13 @@ export interface EditorState {
   /** Play-mode: place a monster on a free tile next to a hero (wandering monster). Returns false if the hero isn't on the board or no free tile. */
   placeMonsterNearHero: (monsterSubtype: string, heroSubtype: string) => boolean
   revealRoom: (groupId: string) => void
+  /** Re-fog a revealed room (host-driven undo) — removes the group; no event. */
+  unrevealRoom: (groupId: string) => void
   revealCorridor: (x: number, y: number) => void
+  /** Restore persisted corridor fog: add raw tile keys ("x,y") without recompute or event. */
+  revealTiles: (keys: string[]) => void
+  /** Restore persisted search discoveries: add element ids (found traps / secret doors). */
+  revealDiscovered: (ids: string[]) => void
   resetFog: () => void
 }
 
@@ -243,6 +278,37 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
       const el = s.quest.elements.find((e) => e.id === id)
       set((s) => pushHistory(s, moveElement(s.quest, id, x, y)))
       if (el) emitEvent({ type: 'element:moved', element: el, from: { ...el.position }, to: { x, y } })
+    },
+    setElementPosition: (id, x, y) => {
+      // Silent reposition (no element:moved event) — for host-driven corrections like
+      // undoing a logged move, where re-emitting would log the correction as a new move.
+      const s = get()
+      if (s.locked) return
+      if (!s.quest.elements.some((e) => e.id === id)) return
+      set((st) => pushHistory(st, moveElement(st.quest, id, x, y)))
+    },
+    moveInPlay: (id, x, y) => {
+      const s = get()
+      if (s.mode !== 'play' || s.locked) return
+      const el = s.quest.elements.find((e) => e.id === id)
+      if (!el) return
+      const moved = moveElement(s.quest, id, x, y)
+      if (el.type === 'hero') {
+        // A hero lights the way as it advances — same reveal as placement.
+        const rev = revealForHero(s.quest, x, y)
+        const groups = new Set(s.revealedGroups)
+        const newGroups: string[] = []
+        for (const g of rev.groups) if (!groups.has(g)) { groups.add(g); newGroups.push(g) }
+        const tiles = new Set(s.revealedTiles)
+        let tilesAdded = false
+        for (const t of rev.tiles) if (!tiles.has(t)) { tiles.add(t); tilesAdded = true }
+        set((st) => ({ ...pushHistory(st, moved), revealedGroups: groups, revealedTiles: tiles }))
+        for (const g of newGroups) emitEvent({ type: 'room:revealed', groupId: g })
+        if (tilesAdded) emitEvent({ type: 'corridor:revealed', tiles: [...tiles] })
+      } else {
+        set((st) => pushHistory(st, moved))
+      }
+      emitEvent({ type: 'element:moved', element: el, from: { ...el.position }, to: { x, y } })
     },
     selectElement: (id) =>
       set((s) => {
@@ -389,6 +455,7 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
       } else {
         set({ mode, revealedGroups: new Set<string>(), revealedTiles: new Set<string>(), discoveredElements: new Set<string>(), placingHeroes: [], _placingTotal: 0 })
       }
+      emitEvent({ type: 'mode:changed', mode })
     },
     killMonster: (id) => {
       const s = get()
@@ -403,10 +470,19 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
       const s = get()
       if (s.mode !== 'play') return 0
       const group = getGroupedRooms(s.quest).find((g) => g.id === groupId)
-      const inRoom = group ? getElementsByRooms(s.quest, group.rooms) : []
-      const matches = inRoom.filter((el) =>
-        kind === 'traps' ? el.type === 'trap' : el.type === 'door' && el.subtype === 'secret',
-      )
+      if (!group) return 0
+      const matches: QuestElement[] =
+        kind === 'traps'
+          ? getElementsByRooms(s.quest, group.rooms).filter((el) => el.type === 'trap')
+          : // Secret doors are tile blocks with no orientation, often sitting on a shared
+            // wall / corridor tile OUTSIDE the room's AABB. Match by tile adjacency so the
+            // passage belongs to BOTH rooms it divides (and to a bordering corridor).
+            s.quest.elements.filter(
+              (el) =>
+                el.type === 'door' &&
+                el.subtype === 'secret' &&
+                group.rooms.some((r) => secretDoorBordersRoom(el, r)),
+            )
       const freshR = matches.filter((el) => !s.discoveredElements.has(el.id))
       if (freshR.length > 0) set({ discoveredElements: new Set([...s.discoveredElements, ...freshR.map((el) => el.id)]) })
       return matches.length
@@ -419,11 +495,17 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
       const matches = s.quest.elements.filter((el) => {
         if (kind === 'traps') return el.type === 'trap' && tiles.has(tileKey(el.position.x, el.position.y))
         if (el.type !== 'door' || el.subtype !== 'secret') return false
-        // A door borders a corridor tile if its own tile or its far edge tile is in the section.
-        const far = el.orientation === 'vertical'
-          ? tileKey(el.position.x + 1, el.position.y)
-          : tileKey(el.position.x, el.position.y + 1)
-        return tiles.has(tileKey(el.position.x, el.position.y)) || tiles.has(far)
+        // Secret doors have no orientation — a passage borders this corridor section if
+        // its own tile OR any orthogonal neighbour is in the section (covers a door tile
+        // sitting just inside the adjacent room).
+        const { x, y } = el.position
+        return (
+          tiles.has(tileKey(x, y)) ||
+          tiles.has(tileKey(x + 1, y)) ||
+          tiles.has(tileKey(x - 1, y)) ||
+          tiles.has(tileKey(x, y + 1)) ||
+          tiles.has(tileKey(x, y - 1))
+        )
       })
       const freshC = matches.filter((el) => !s.discoveredElements.has(el.id))
       if (freshC.length > 0) set({ discoveredElements: new Set([...s.discoveredElements, ...freshC.map((el) => el.id)]) })
@@ -463,7 +545,7 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
           const groups = new Set(s.revealedGroups)
           const rtiles = new Set(s.revealedTiles)
           for (let i = 0; i < heroes.length; i++) {
-            quest = addElement(quest, createElement('hero', heroes[i].subtype, tiles[i].x, tiles[i].y))
+            quest = addElement(quest, createElement('hero', heroes[i].subtype, tiles[i].x, tiles[i].y, heroLabelMeta(heroes[i])))
             const rev = revealForHero(s.quest, tiles[i].x, tiles[i].y)
             rev.groups.forEach((g) => groups.add(g))
             rev.tiles.forEach((t) => rtiles.add(t))
@@ -495,7 +577,7 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
       const [next, ...rest] = s.placingHeroes
       const rev = revealForHero(s.quest, x, y)
       set((st) => ({
-        ...pushHistory(st, addElement(st.quest, createElement('hero', next.subtype, x, y))),
+        ...pushHistory(st, addElement(st.quest, createElement('hero', next.subtype, x, y, heroLabelMeta(next)))),
         placingHeroes: rest,
         revealedGroups: rev.groups.length ? new Set([...st.revealedGroups, ...rev.groups]) : st.revealedGroups,
         revealedTiles: rev.tiles.length ? new Set([...st.revealedTiles, ...rev.tiles]) : st.revealedTiles,
@@ -539,6 +621,16 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
       set({ revealedGroups: next })
       emitEvent({ type: 'room:revealed', groupId })
     },
+    unrevealRoom: (groupId) => {
+      // Re-fog a room (host-driven undo of a reveal). Removing the group re-hides its
+      // tiles and the monsters inside (see fogTiles / elementsByType). No event.
+      const s = get()
+      if (s.mode !== 'play') return
+      if (!s.revealedGroups.has(groupId)) return
+      const next = new Set(s.revealedGroups)
+      next.delete(groupId)
+      set({ revealedGroups: next })
+    },
     revealCorridor: (x, y) => {
       const s = get()
       if (s.mode !== 'play') return
@@ -549,7 +641,34 @@ export const createEditorStore = (initialQuest?: Partial<Quest>, emit?: EventEmi
       for (const t of tiles) {
         if (!next.has(t)) { next.add(t); added = true }
       }
+      if (added) {
+        set({ revealedTiles: next })
+        emitEvent({ type: 'corridor:revealed', tiles: [...next] })
+      }
+    },
+    revealTiles: (keys) => {
+      // Raw restore of persisted fog: add tile keys verbatim, no line-of-sight
+      // recompute and no event (so a host can rehydrate without re-persisting).
+      const s = get()
+      if (s.mode !== 'play' || keys.length === 0) return
+      const next = new Set(s.revealedTiles)
+      let added = false
+      for (const k of keys) {
+        if (!next.has(k)) { next.add(k); added = true }
+      }
       if (added) set({ revealedTiles: next })
+    },
+    revealDiscovered: (ids) => {
+      // Raw restore of search discoveries (found traps / secret doors). Adds element
+      // ids verbatim so a host can rehydrate them after a (re)mount or mode switch.
+      const s = get()
+      if (s.mode !== 'play' || ids.length === 0) return
+      const next = new Set(s.discoveredElements)
+      let added = false
+      for (const id of ids) {
+        if (!next.has(id)) { next.add(id); added = true }
+      }
+      if (added) set({ discoveredElements: next })
     },
     resetFog: () => set({ revealedGroups: new Set<string>(), revealedTiles: new Set<string>() }),
   }))

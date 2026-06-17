@@ -10,6 +10,11 @@ export type EditorEvent =
   | { type: 'quest:undo'; quest: Quest }
   | { type: 'quest:redo'; quest: Quest }
   | { type: 'room:revealed'; groupId: string }
+  // Play-mode: corridor tiles were revealed (clicking a corridor tile reveals it
+  // plus its line-of-sight neighbours). `tiles` is the FULL revealed-tile set after
+  // the reveal (keys "x,y") — a host persists it wholesale and restores via revealTiles.
+  // Not emitted during restore (revealTiles is silent).
+  | { type: 'corridor:revealed'; tiles: string[] }
   // Play-mode: a revealed location was right-clicked to search it. `groupId` is the
   // room when the tile is inside one, else null (corridor — use x,y). The host opens
   // a search menu, then calls `searchRoom(groupId, kind)` or `searchCorridor(x, y, kind)`.
@@ -28,6 +33,9 @@ export type EditorEvent =
   // hint; each board click drops the next hero) → `heroes:placed` when done.
   | { type: 'heroes:need-placement'; count: number }
   | { type: 'heroes:placed'; count: number }
+  // Edit/play mode toggled. Entering play resets fog (a host restoring persisted fog
+  // should re-apply it here); a host that logs play-only actions can gate on this.
+  | { type: 'mode:changed'; mode: 'edit' | 'play' }
   | { type: 'plugin:event'; pluginId: string; action: string; data?: unknown }
 
 export type EventEmitter = (event: EditorEvent) => void

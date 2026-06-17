@@ -92,6 +92,27 @@ describe('fog of war', () => {
     })
   })
 
+  it('unrevealRoom re-fogs a single revealed room', () => {
+    const store = createEditorStore()
+    store.getState().setMode('play')
+    store.getState().revealRoom('room-1')
+    store.getState().revealRoom('room-2')
+
+    store.getState().unrevealRoom('room-1')
+
+    expect(store.getState().revealedGroups.has('room-1')).toBe(false)
+    expect(store.getState().revealedGroups.has('room-2')).toBe(true)
+  })
+
+  it('unrevealRoom is a no-op outside play mode', () => {
+    const store = createEditorStore()
+    store.getState().setMode('play')
+    store.getState().revealRoom('room-1')
+    store.getState().setMode('edit')
+    store.getState().unrevealRoom('room-1') // mode reset already cleared it; stays empty
+    expect(store.getState().revealedGroups.size).toBe(0)
+  })
+
   it('resetFog clears all revealed rooms', () => {
     const store = createEditorStore()
     store.getState().setMode('play')
@@ -121,5 +142,81 @@ describe('fog of war', () => {
     store.getState().revealRoom('room-2')
     store.getState().revealRoom('room-3')
     expect(store.getState().revealedGroups.size).toBe(3)
+  })
+
+  it('emits corridor:revealed with the full revealed-tile set', () => {
+    const handler = vi.fn()
+    // A board with no rooms — every in-board tile is corridor.
+    const quest = createQuest({ name: 'Corridor', layout: { rooms: [], walls: [] } })
+    const store = createEditorStore(quest, handler)
+    store.getState().setMode('play')
+    handler.mockClear()
+
+    store.getState().revealCorridor(3, 3)
+
+    const revealed = store.getState().revealedTiles
+    expect(revealed.has('3,3')).toBe(true)
+    const events = handler.mock.calls.filter(([e]: [EditorEvent]) => e.type === 'corridor:revealed')
+    expect(events).toHaveLength(1)
+    const [evt] = events[0] as [Extract<EditorEvent, { type: 'corridor:revealed' }>]
+    expect(new Set(evt.tiles)).toEqual(revealed)
+  })
+
+  it('revealTiles restores raw tile keys without emitting an event', () => {
+    const handler = vi.fn()
+    const store = createEditorStore(undefined, handler)
+    store.getState().setMode('play')
+    handler.mockClear()
+
+    store.getState().revealTiles(['2,2', '2,3', '2,4'])
+
+    expect(store.getState().revealedTiles.has('2,3')).toBe(true)
+    expect(store.getState().revealedTiles.size).toBe(3)
+    const events = handler.mock.calls.filter(([e]: [EditorEvent]) => e.type === 'corridor:revealed')
+    expect(events).toHaveLength(0)
+  })
+
+  it('revealTiles is a no-op outside play mode', () => {
+    const store = createEditorStore()
+    store.getState().revealTiles(['2,2'])
+    expect(store.getState().revealedTiles.size).toBe(0)
+  })
+
+  it('moveInPlay commits a hero move and reveals its new corridor line of sight', () => {
+    const handler = vi.fn()
+    const hero = createElement('hero', 'barbarian', 1, 1)
+    const quest = createQuest({ name: 'Corridor', layout: { rooms: [], walls: [] }, elements: [hero] })
+    const store = createEditorStore(quest, handler)
+    store.getState().setMode('play')
+    handler.mockClear()
+
+    store.getState().moveInPlay(hero.id, 4, 4)
+
+    const moved = store.getState().quest.elements.find((e) => e.id === hero.id)
+    expect(moved?.position).toEqual({ x: 4, y: 4 })
+    expect(store.getState().revealedTiles.has('4,4')).toBe(true)
+    expect(handler.mock.calls.some(([e]: [EditorEvent]) => e.type === 'corridor:revealed')).toBe(true)
+    expect(handler.mock.calls.some(([e]: [EditorEvent]) => e.type === 'element:moved')).toBe(true)
+  })
+
+  it('moveInPlay commits a monster move without revealing fog', () => {
+    const monster = createElement('monster', 'goblin', 2, 2)
+    const quest = createQuest({ name: 'Corridor', layout: { rooms: [], walls: [] }, elements: [monster] })
+    const store = createEditorStore(quest)
+    store.getState().setMode('play')
+
+    store.getState().moveInPlay(monster.id, 5, 5)
+
+    const moved = store.getState().quest.elements.find((e) => e.id === monster.id)
+    expect(moved?.position).toEqual({ x: 5, y: 5 })
+    expect(store.getState().revealedTiles.size).toBe(0)
+  })
+
+  it('moveInPlay is a no-op outside play mode', () => {
+    const hero = createElement('hero', 'elf', 1, 1)
+    const quest = createQuest({ name: 'Edit', layout: { rooms: [], walls: [] }, elements: [hero] })
+    const store = createEditorStore(quest)
+    store.getState().moveInPlay(hero.id, 4, 4)
+    expect(store.getState().quest.elements.find((e) => e.id === hero.id)?.position).toEqual({ x: 1, y: 1 })
   })
 })

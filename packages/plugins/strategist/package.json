@@ -1,6 +1,6 @@
 {
   "name": "@quest-editor/plugin-strategist",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -17,9 +17,9 @@
   },
   "dependencies": {},
   "peerDependencies": {
-    "@quest-editor/core": "^0.1.0",
-    "@quest-editor/editor": "^0.1.0",
-    "react": "^18.0.0"
+    "@quest-editor/core": ">=0.1.0",
+    "@quest-editor/editor": ">=0.1.0",
+    "react": "^18.0.0 || ^19.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.18",

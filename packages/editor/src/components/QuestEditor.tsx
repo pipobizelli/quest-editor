@@ -40,8 +40,22 @@ export interface QuestEditorHandle {
   revealRoom: (groupId: string) => void
   /** Currently revealed room groups — lets a host persist/restore fog state. */
   getRevealedGroups: () => string[]
+  /** Re-fog a revealed room by group id (host-driven undo of a reveal); emits no event. */
+  unrevealRoom: (groupId: string) => void
+  /** Currently revealed corridor tiles (keys "x,y") — for persisting corridor fog. */
+  getRevealedTiles: () => string[]
+  /** Restore persisted corridor fog (play mode). Adds raw tile keys; emits no event. */
+  revealTiles: (keys: string[]) => void
+  /** Element ids found by searching (traps / secret doors) — for persisting discoveries. */
+  getDiscoveredElements: () => string[]
+  /** Restore persisted search discoveries (play mode). Adds element ids; emits no event. */
+  revealDiscovered: (ids: string[]) => void
   /** Remove an element by id. Used by hosts to take a killed monster off the board after a play-mode hook. */
   removeElement: (id: string) => void
+  /** The currently selected element (e.g. a monster tapped in play mode), or null. */
+  getSelectedElement: () => QuestElement | null
+  /** Silently reposition an element by id (no event) — for host-driven corrections (e.g. undo a move). */
+  setElementPosition: (id: string, x: number, y: number) => void
   /** Play mode: search a room group for traps/secret doors. Reveals them; returns how many were found. */
   searchRoom: (groupId: string, kind: 'traps' | 'secret') => number
   /** Play mode: search the corridor section around (x,y) for traps/secret doors. Returns how many were found. */
@@ -52,7 +66,7 @@ export interface QuestEditorHandle {
   placeMonsterNearHero: (monsterSubtype: string, heroSubtype: string) => boolean
 }
 
-const PANEL_WIDTH = 220
+const PANEL_WIDTH = 260
 
 export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(function QuestEditor({
   quest: externalQuest,
@@ -62,12 +76,14 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
   height: containerHeight = 600,
   theme: themeProp,
   showLabels = true,
-  showRoomIds = false,
+  showRoomIds: showRoomIdsProp = false,
   showModeToggle = true,
   plugins = [],
   llmProvider,
 }, ref) {
   const resolvedTheme = typeof themeProp === 'string' ? (THEMES[themeProp] ?? DEFAULT_THEME) : (themeProp ?? DEFAULT_THEME)
+  // Room-ID overlay is toggled from the editor's own toolbar; the prop is the initial value.
+  const [showRoomIds, setShowRoomIds] = useState(showRoomIdsProp)
   // Stable ref for the event callback so the store doesn't need to be recreated
   const onEventRef = useRef(onEvent)
   onEventRef.current = onEvent
@@ -117,7 +133,17 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
     setMode: (m) => store.getState().setMode(m),
     revealRoom: (groupId) => store.getState().revealRoom(groupId),
     getRevealedGroups: () => Array.from(store.getState().revealedGroups),
+    unrevealRoom: (groupId) => store.getState().unrevealRoom(groupId),
+    getRevealedTiles: () => Array.from(store.getState().revealedTiles),
+    revealTiles: (keys) => store.getState().revealTiles(keys),
+    getDiscoveredElements: () => Array.from(store.getState().discoveredElements),
+    revealDiscovered: (ids) => store.getState().revealDiscovered(ids),
     removeElement: (id) => store.getState().removeElement(id),
+    setElementPosition: (id, x, y) => store.getState().setElementPosition(id, x, y),
+    getSelectedElement: () => {
+      const s = store.getState()
+      return s.quest.elements.find((e) => e.id === s.selectedElementId) ?? null
+    },
     searchRoom: (groupId, kind) => store.getState().searchRoom(groupId, kind),
     searchCorridor: (x, y, kind) => store.getState().searchCorridor(x, y, kind),
     placeHeroes: (heroes, opts) => store.getState().placeHeroes(heroes, opts),
@@ -169,10 +195,21 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
   const fogTiles = useMemo(() => {
     if (mode !== 'play') return []
     const disabled = buildDisabledSet(quest)
+    // Structural blocks are always rendered (see elementsByType) — they're part of the
+    // visible dungeon layout, so never cover them with fog (footprint included).
+    const blockTiles = new Set<string>()
+    for (const el of quest.elements) {
+      if (el.type === 'furniture' && (el.subtype === 'block' || el.subtype === 'doubleblock')) {
+        const w = el.width ?? 1
+        const h = el.height ?? 1
+        for (let dx = 0; dx < w; dx++)
+          for (let dy = 0; dy < h; dy++) blockTiles.add(tileKey(el.position.x + dx, el.position.y + dy))
+      }
+    }
     const tiles: string[] = []
     // Corridor fog
     for (const key of getCorridorTiles(quest)) {
-      if (!revealedTiles.has(key)) tiles.push(key)
+      if (!revealedTiles.has(key) && !blockTiles.has(key)) tiles.push(key)
     }
     // Room fog (tile by tile, skipping disabled)
     for (const group of roomGroups) {
@@ -181,7 +218,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
         for (let x = room.x; x < room.x + room.width; x++) {
           for (let y = room.y; y < room.y + room.height; y++) {
             const key = tileKey(x, y)
-            if (!disabled.has(key)) tiles.push(key)
+            if (!disabled.has(key) && !blockTiles.has(key)) tiles.push(key)
           }
         }
       }
@@ -275,14 +312,17 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Undo/redo are EDIT-mode operations (board history). In play mode the host owns
+      // Cmd+Z (e.g. a live session's "undo last action"), so don't consume it here.
+      const editing = store.getState().mode === 'edit'
       // Undo: Cmd+Z / Ctrl+Z
-      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+      if (editing && (e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault()
         store.getState().undo()
         return
       }
       // Redo: Cmd+Shift+Z / Ctrl+Shift+Z or Cmd+Y / Ctrl+Y
-      if ((e.metaKey || e.ctrlKey) && (e.key === 'Z' || e.key === 'y')) {
+      if (editing && (e.metaKey || e.ctrlKey) && (e.key === 'Z' || e.key === 'y')) {
         e.preventDefault()
         store.getState().redo()
         return
@@ -366,10 +406,15 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
 
   const handleDragEnd = useCallback(
     (id: string, x: number, y: number) => {
-      if (mode === 'play') return
+      // Play mode: commit moves of mobile pieces (heroes/monsters) so positions
+      // persist; heroes also light up fog as they advance (see moveInPlay).
+      if (mode === 'play') {
+        store.getState().moveInPlay(id, x, y)
+        return
+      }
       doMoveElement(id, x, y)
     },
-    [doMoveElement, mode],
+    [doMoveElement, mode, store],
   )
 
   // In play mode, clicking a door reveals the connected rooms
@@ -585,6 +630,8 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
           onEvent={(e) => onEventRef.current?.(e)}
           mode={mode}
           onSetMode={setMode}
+          showRoomIds={showRoomIds}
+          onToggleRoomIds={() => setShowRoomIds((v) => !v)}
         />
       )}
       <div style={{ position: 'relative', flex: 1 }}>
@@ -617,7 +664,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
           scaleY={scale}
           x={stagePos.x}
           y={stagePos.y}
-          draggable={!locked && mode === 'edit' && (tool === 'select' || tool === 'place')}
+          draggable={!locked && (mode === 'play' || tool === 'select' || tool === 'place')}
           onWheel={handleWheel}
           onClick={locked ? undefined : mode === 'play' ? handlePlayClick : handleStageClick}
           onTap={locked ? undefined : mode === 'play' ? handlePlayClick : handleStageClick}
@@ -625,7 +672,7 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
           onMouseDown={(locked || mode === 'play') ? undefined : handleMouseDown}
           onMouseMove={(locked || mode === 'play') ? undefined : handleMouseMove}
           onMouseUp={(locked || mode === 'play') ? undefined : handleMouseUp}
-          style={{ cursor: locked ? 'not-allowed' : mode === 'play' ? (placingHeroes.length > 0 ? 'crosshair' : 'default') : cursorMap[tool], opacity: locked ? 0.45 : 1, transition: 'opacity 0.3s ease' }}
+          style={{ cursor: locked ? 'not-allowed' : mode === 'play' ? (placingHeroes.length > 0 ? 'crosshair' : 'grab') : cursorMap[tool], opacity: locked ? 0.45 : 1, transition: 'opacity 0.3s ease' }}
           onDragEnd={(e) => {
             if (e.target === stageRef.current) {
               setStagePos({ x: e.target.x(), y: e.target.y() })
@@ -644,8 +691,9 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
             />
           </Layer>
 
-          {/* Element layers — one per category, ordered back to front */}
-          {LAYER_ORDER.map((layerType) => {
+          {/* Element layers — one per category, ordered back to front. Heroes are pulled
+              out and drawn last (after fog) so the party always sits on top of everything. */}
+          {LAYER_ORDER.filter((t) => t !== 'hero').map((layerType) => {
             const elements = elementsByType.get(layerType)
             if (!elements?.length) return null
             return (
@@ -658,6 +706,9 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
                     isSelected={selectedElementIds.includes(el.id)}
                     onSelect={handleElementSelect}
                     onDragEnd={handleDragEnd}
+                    // Edit mode: everything is draggable. Play mode: only mobile
+                    // pieces (heroes/monsters) move; fixtures stay put.
+                    draggable={!locked && (mode === 'edit' || el.type === 'hero' || el.type === 'monster')}
                   />
                 ))}
               </Layer>
@@ -681,6 +732,23 @@ export const QuestEditor = forwardRef<QuestEditorHandle, QuestEditorProps>(funct
                   />
                 )
               })}
+            </Layer>
+          )}
+
+          {/* Heroes — topmost layer (above fog and markers): the party is always visible. */}
+          {(elementsByType.get('hero')?.length ?? 0) > 0 && (
+            <Layer listening={!locked}>
+              {elementsByType.get('hero')!.map((el) => (
+                <QuestElementNode
+                  key={el.id}
+                  element={el}
+                  board={quest.board}
+                  isSelected={selectedElementIds.includes(el.id)}
+                  onSelect={handleElementSelect}
+                  onDragEnd={handleDragEnd}
+                  draggable={!locked}
+                />
+              ))}
             </Layer>
           )}
         </Stage>

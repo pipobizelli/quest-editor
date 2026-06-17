@@ -39,6 +39,8 @@ export interface ElementPanelProps {
   onEvent?: (event: import('../events').EditorEvent) => void
   mode?: 'edit' | 'play'
   onSetMode?: (mode: 'edit' | 'play') => void
+  showRoomIds?: boolean
+  onToggleRoomIds?: () => void
 }
 
 export function ElementPanel({
@@ -64,6 +66,8 @@ export function ElementPanel({
   onEvent,
   mode = 'edit',
   onSetMode,
+  showRoomIds = false,
+  onToggleRoomIds,
 }: ElementPanelProps) {
   const [openCategory, setOpenCategory] = useState<ElementType | null>('hero')
   const [showValidation, setShowValidation] = useState(false)
@@ -80,7 +84,7 @@ export function ElementPanel({
   const panelOrder: ElementType[] = ['hero', 'monster', 'npc', 'furniture', 'door', 'trap', 'treasure', 'marker']
 
   return (
-    <div style={{ width: 220, background: t.panelBg, borderRight: `1px solid ${t.panelBorder}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
+    <div style={{ width: 260, background: t.panelBg, borderRight: `1px solid ${t.panelBorder}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
       <div style={{ padding: '10px 12px', borderBottom: `1px solid ${t.panelBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14, color: t.panelText }}>
         <span style={{ fontWeight: 600 }}>Elements</span>
         <div style={{ display: 'flex', gap: 4 }}>
@@ -122,6 +126,13 @@ export function ElementPanel({
           title="Disable tiles (D)"
         >
           Disable
+        </button>
+        <button
+          onClick={onToggleRoomIds}
+          style={{ padding: '4px 8px', background: showRoomIds ? t.toolBtnActiveBg : t.toolBtnBg, color: showRoomIds ? t.toolBtnActiveColor : t.toolBtnColor, border: `1px solid ${showRoomIds ? t.toolBtnActiveBorder : t.panelBorder}`, borderRadius: 4, cursor: 'pointer', fontSize: 11 }}
+          title="Mostrar IDs das salas"
+        >
+          # IDs
         </button>
         <button
           onClick={onRecenter}

@@ -29,6 +29,23 @@ describe('hero placement', () => {
     expect(store.getState().placingHeroes).toEqual([])
   })
 
+  it('carries each hero label into the placed element metadata', () => {
+    const store = createEditorStore(questWithStairway())
+    store.getState().setMode('play')
+
+    store.getState().placeHeroes([
+      { subtype: 'barbarian', label: 'Conan' },
+      { subtype: 'barbarian', label: 'Krull' },
+      { subtype: 'elf', label: 'Legolas' },
+      { subtype: 'wizard' },
+    ])
+
+    const byLabel = heroes(store).map((h) => h.metadata?.label)
+    expect(byLabel).toContain('Conan')
+    expect(byLabel).toContain('Krull') // two barbarians, distinguishable
+    expect(byLabel).toContain('Legolas')
+  })
+
   it('without a stairway, enters click-to-place mode and emits heroes:need-placement', () => {
     const handler = vi.fn()
     const store = createEditorStore(createQuest({ name: 'No stairway' }), handler)
